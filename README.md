@@ -35,7 +35,7 @@ Rembg is a tool to remove images background. That is it.
 </p>
 
 ### Tim Scarfe - Video Virtual Green Screen Version
-S
+
 I have created a PowerShell script which will (on Windows)
 
 * Take any MP4 video file and convert it to a transparent low quality MOV which you can use as an alpha matte in Premiere
