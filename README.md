@@ -33,6 +33,18 @@ Rembg is a tool to remove images background. That is it.
   <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/girl-3.jpg" width="100" />
   <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/girl-3.out.png" width="100" />
 </p>
+### Tim Scarfe - Video Virtual Green Screen Version
+
+I have created a PowerShell script which will (on Windows)
+
+* Take any MP4 video file and convert it to a transparent low quality MOV which you can use as an alpha matte in Premiere
+* It runs end-to-end non-interactively 
+* It will detect failure cases where the size of the png is zero and fix them
+* It will divide the work into batches and run them in parallel to maximise the memory and compute utilisation on your machine
+* You need ffmpeg installed and on your path
+* You need to make environmental variables for the location of rembg and anaconda i.e. $env:rembg = "C:\Users\tim\git\rembg" and $env:anaconda = "C:\Users\tim\anaconda3"
+* The powershell script is ./remove-bg.ps1 
+
 
 ### Requirements
 
