@@ -15,7 +15,7 @@ cd $tempfolder
 $folder = Get-Location
 
 # have we already exported the frames?
-$skip_create_frames = (ls *.png | measure).Count -gt 10
+$skip_create_frames = (ls *.jpg | measure).Count -gt 10
 
 # turn video into frames
 if(-not $skip_create_frames){
@@ -37,11 +37,11 @@ if(-not $skip_create_frames){
         Where-Object Name -imatch "jpg" |
         ForEach-Object { 
             New-Object PSObject  -property @{
-                Test= (Test-Path -Path ($_.name -replace "jpg", ".out.png") ); 
+                PngNotPresent= -not ( Test-Path -Path ($_.name -replace ".jpg", ".out.png") ); 
                 Path=$_.Name;
                 Number=$d++
             } } | 
-            Where-Object Test | 
+            Where-Object PngNotPresent | 
             Group-Object -Property {$_.Number % $batches} |
             ForEach-Object{
                 $gn = $_.Name
