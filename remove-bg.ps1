@@ -3,28 +3,29 @@ param(
 [int]$batches=10,
 [int]$concurrency=4,
 [int]$fps=30,
-[bool]$skip_create_frames=0,
-[bool]$fix_in_place=0)
+[int]$retry_times=2)
 
-if( !$fix_in_place){
-    
-    $tempfolder = $target -replace ".mp4", ""
 
-    mkdir ./$tempfolder -Force
-    cp $target ./$tempfolder
-    cd $tempfolder
+$tempfolder = $target -replace ".mp4", ""
 
-    $folder = Get-Location
+mkdir ./$tempfolder -Force
+cp $target ./$tempfolder
+cd $tempfolder
 
-    # turn video into frames
-    if(-not $skip_create_frames){
-        ffmpeg -i $target -vf fps=$fps %d.jpg
-    }
+$folder = Get-Location
 
+# have we already exported the frames?
+$skip_create_frames = (ls *.png | measure).Count -gt 10
+
+# turn video into frames
+if(-not $skip_create_frames){
+    ffmpeg -i $target -vf fps=$fps %d.jpg
+}else{
+    echo "skipping creation of frames..."
 }
 
 # retry failed ones
-1..3 | % { 
+1..$retry_times | % { 
 
     # delete any failed png conversions
     ls *.png | where Length -eq 0 | del
@@ -36,7 +37,7 @@ if( !$fix_in_place){
         Where-Object Name -imatch "jpg" |
         ForEach-Object { 
             New-Object PSObject  -property @{
-                Test= -not (Test-Path -Path ($_.name -replace "jpg", ".out.png") ); 
+                Test= (Test-Path -Path ($_.name -replace "jpg", ".out.png") ); 
                 Path=$_.Name;
                 Number=$d++
             } } | 
@@ -63,27 +64,27 @@ if( !$fix_in_place){
 
 }
 
+# num jpgs = num pngs
+$equal_pngs = (ls *.jpg | measure).Count -eq (ls *.png | measure).Count
+# none of the conversations failed
+$noempty_pngs = (ls *.png | where Length -eq 0 | measure ).Count -eq 0
+
+
 #check for every JPG file there is a corresponding non-empty PNG present
-if( (Get-ChildItem | 
-    Where-Object Name -imatch "jpg" |
-    ForEach-Object { 
-        New-Object PSObject  -property @{
-            PngNotCreated = -not (Test-Path -Path ($_.name -replace "jpg", ".out.png") ); 
-            PngEmpty = -not (Test-Path -Path ($_.name -replace "jpg", ".out.png") ) -or (get-item ($_.name -replace "jpg", ".out.png")).Length -eq 0;
-        } } | 
-        Where-Object {$_.PngNotCreated -or $_.PngEmpty }|
-        Measure-Object).Length -eq 0 ) {
+if( $equal_pngs -and $noempty_pngs){
 
-            del *.jpg
-    
-            ffmpeg -i %d.out.png -vcodec png ($target -replace ".mp4", ".mov")
-        
-            Move-Item *.mov ../
+    echo "equal jpgs and pngs detected, and all pngs are non-zero, making mov file..."
 
-            del *.png
+    del *.jpg
 
-            cd ../
-            del $tempfolder -Recurse
+    ffmpeg -i %d.out.png -vcodec png ($target -replace ".mp4", ".mov")
+
+    echo "moving mov file back to main dir"
+    Move-Item *.mov ../
+
+    del *.png
+    cd ../
+    del $tempfolder -Recurse
 }
 
 else{
