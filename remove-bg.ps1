@@ -1,8 +1,11 @@
 param(
 [string]$target,    
 [int]$batches=6,
-[int]$fps=30,
 [int]$retry_times=2)
+
+# compute the fps dynamically, so we don't waste compute on setting higher
+$fps_fraction = ffprobe -v 0 -of csv=p=0 -select_streams v:0 -show_entries stream=r_frame_rate $target
+$fps = [math]::ceiling( (Invoke-Expression $fps_fraction) )
 
 $tempfolder = $target -replace ".mp4", ""
 
