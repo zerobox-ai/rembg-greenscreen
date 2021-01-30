@@ -1,6 +1,6 @@
 param(
 [string]$target,    
-[int]$batches=6,
+[int]$batches=5,
 [int]$retry_times=5)
 
 # compute the fps dynamically, so we don't waste compute on setting higher
@@ -27,7 +27,8 @@ $skip_create_frames = (ls *.jpg | measure).Count -gt 10
 
 # turn video into frames
 if(-not $skip_create_frames){
-    ffmpeg -i $target -vf fps=$fps %d.jpg
+    # now halfing the res of the alpha matte, gives a pretty big speedup
+    ffmpeg -i $target -vf "fps=$fps,scale=iw*.5:ih*.5" %d.jpg
 }else{
     echo "skipping creation of frames..."
 }
@@ -53,7 +54,7 @@ if(-not $skip_create_frames){
     if( $dirs.Count -gt 0 ) {
         del $dirs -Force -Recurse
     }
-    
+
     echo "deleting failed conversions"
 
     # delete any failed png conversions
@@ -70,53 +71,57 @@ if(-not $skip_create_frames){
             New-Object PSObject  -property @{
                 PngNotPresent= -not ( Test-Path -Path ($_.name -replace ".jpg", ".out.png") ); 
                 Path=$_.Name;
-                Number=$d++
-            } } | 
-            Where-Object PngNotPresent | 
-            Group-Object -Property {$_.Number % $batches} |
-            ForEach-Object{
-                $gn = $_.Name
-                mkdir $gn -Force
+            }  } |
+        Where-Object PngNotPresent | 
+        ForEach-Object { 
+            New-Object PSObject  -property @{
+                PngNotPresent= $_.PngNotPresent;
+                Path=$_.Path;
+                Number=$x++; #we do this after filter on PngNotPresent intentionally
+            }  } |
+        Group-Object -Property {$_.Number % $batches} |
+        ForEach-Object{
+            $gn = $_.Name
+            mkdir $gn -Force
 
-                $_.Group | ForEach-Object{ Copy-Item $_.Path $gn }
+            $_.Group | ForEach-Object{ Copy-Item $_.Path $gn }
 
-                Start-Job -ScriptBlock {param([string]$folder, [string]$gn)
+            Start-Job -ScriptBlock {param([string]$folder, [string]$gn)
 
-                    C:/Windows/System32/cmd.exe /K "$env:anaconda\\Scripts\\activate.bat $env:anaconda && cd $env:rembg && python -m src.rembg.cmd.cli -p $folder\$gn 2>&1 && exit"
-                
-                    Copy-Item $folder/$gn/*.png $folder
-                    Remove-Item $folder/$gn/ -Force -Recurse
+                C:/Windows/System32/cmd.exe /K "$env:anaconda\\Scripts\\activate.bat $env:anaconda && cd $env:rembg && python -m src.rembg.cmd.cli -p $folder\$gn 2>&1 && exit"
+            
+                Copy-Item $folder/$gn/*.png $folder
+                Remove-Item $folder/$gn/ -Force -Recurse
 
-                } -ArgumentList "$folder", "$gn"
+            } -ArgumentList "$folder", "$gn"
 
-            }
+        }
 
     get-job | Wait-Job
 
+    # num jpgs = num pngs
+    $equal_pngs = (ls *.jpg | measure).Count -eq (ls *.png | measure).Count
+    # none of the conversations failed
+    $noempty_pngs = (ls *.png | where Length -eq 0 | measure ).Count -eq 0
+
+    #check for every JPG file there is a corresponding non-empty PNG present
+    if( $equal_pngs -and $noempty_pngs){
+
+        echo "equal jpgs and pngs detected, and all pngs are non-zero, making mov file..."
+
+        ffmpeg -i %d.out.png -vcodec png ($target -replace ".mp4", ".mov")
+
+        echo "moving mov file back to main dir"
+        Move-Item *.mov ../
+        cd ../
+        del $tempfolder -Recurse -Force
+
+        # we good
+        exit
+    }
+
 }
 
-# num jpgs = num pngs
-$equal_pngs = (ls *.jpg | measure).Count -eq (ls *.png | measure).Count
-# none of the conversations failed
-$noempty_pngs = (ls *.png | where Length -eq 0 | measure ).Count -eq 0
-
-
-#check for every JPG file there is a corresponding non-empty PNG present
-if( $equal_pngs -and $noempty_pngs){
-
-    echo "equal jpgs and pngs detected, and all pngs are non-zero, making mov file..."
-
-    ffmpeg -i %d.out.png -vcodec png ($target -replace ".mp4", ".mov")
-
-    echo "moving mov file back to main dir"
-    Move-Item *.mov ../
-    del *.jpg
-    del *.png
-    cd ../
-    del $tempfolder -Recurse
-}
-
-else{
-    # go back
-    cd ../
-}
+echo "didnt detect conditions to create mov"
+# go back
+cd ../
