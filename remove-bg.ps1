@@ -1,11 +1,16 @@
 param(
 [string]$target,    
 [int]$batches=6,
-[int]$retry_times=2)
+[int]$retry_times=5)
 
 # compute the fps dynamically, so we don't waste compute on setting higher
 $fps_fraction = ffprobe -v 0 -of csv=p=0 -select_streams v:0 -show_entries stream=r_frame_rate $target
 $fps = [math]::ceiling( (Invoke-Expression $fps_fraction) )
+
+# if the file is VBR you get crazy results like 16000
+if( $fps -gt 30 -or $fps -lt 0 ){
+    $fps=24
+}
 
 $tempfolder = $target -replace ".mp4", ""
 
@@ -43,9 +48,12 @@ if(-not $skip_create_frames){
 
     echo "deleting old batches"
 
+    $dirs = (ls -Directory)
     # delete any previous batch folders
-    del (ls -Directory) -Force -Recurse
-
+    if( $dirs.Count -gt 0 ) {
+        del $dirs -Force -Recurse
+    }
+    
     echo "deleting failed conversions"
 
     # delete any failed png conversions
