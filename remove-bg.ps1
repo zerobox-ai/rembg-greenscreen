@@ -89,14 +89,14 @@ if(-not $skip_create_frames){
 
             $_.Group | ForEach-Object{ Copy-Item $_.Path $gn }
 
-            Start-Job -ScriptBlock {param([string]$folder, [string]$gn)
+            Start-Job -ScriptBlock {param([string]$folder, [string]$gn, [string]$tempfolder)
 
-                C:/Windows/System32/cmd.exe /K "$env:anaconda\\Scripts\\activate.bat $env:anaconda && cd $env:rembg && python -m src.rembg.cmd.cli -p $folder\$gn 2>&1 && exit"
+                C:/Windows/System32/cmd.exe /K "$env:anaconda\\Scripts\\activate.bat $env:anaconda && cd $env:rembg && python -m src.rembg.cmd.cli -p $folder\$tempfolder\$gn 2>&1 && exit"
             
-                Copy-Item $folder/$gn/*.png $folder
-                Remove-Item $folder/$gn/ -Force -Recurse
+                Copy-Item $folder/$tempfolder/$gn/*.png $folder
+                Remove-Item $folder/$tempfolder/$gn/ -Force -Recurse
 
-            } -ArgumentList "$folder", "$gn"
+            } -ArgumentList "$folder", "$gn", "$tempfolder"
 
         }
 
@@ -116,9 +116,9 @@ if(-not $skip_create_frames){
 
         echo "moving mov file back to main dir"
         Move-Item *.mov ../
-        cd $orig_folder
         del $tempfolder -Recurse -Force
-
+        cd $orig_folder
+        
         # we good
         exit
     }
