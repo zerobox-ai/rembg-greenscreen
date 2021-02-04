@@ -16,56 +16,56 @@ $orig_folder = Get-Location
 
 $tempfolder = "f_{0}" -f (get-item $target).Name
 
-echo $tempfolder
+Write-Output $tempfolder
 
 $folder = (get-item $target).Directory.FullName
 
 
-mkdir $folder/$tempfolder -Force
+New-Item -Path "$folder" -Name "$tempfolder" -ItemType "directory" -Force
 cp $target $folder/$tempfolder
-cd $folder/$tempfolder
+Set-Location $folder/$tempfolder
 
 # have we already exported the frames?
-$skip_create_frames = (ls *.jpg | measure).Count -gt 10
+$skip_create_frames = (Get-ChildItem *.jpg | Measure-Object).Count -gt 10
 
 # turn video into frames
 if(-not $skip_create_frames){
     # now halfing the res of the alpha matte, gives a pretty big speedup
     ffmpeg -i $target -vf "fps=$fps,scale=iw*.5:ih*.5" %d.jpg
 }else{
-    echo "skipping creation of frames..."
+    Write-Output "skipping creation of frames..."
 }
 
 # retry failed ones
 1..$retry_times | % { 
 
-    echo "moving pngs from old batches up"
+    Write-Output "moving pngs from old batches up"
 
     # copy down any previously completed pngs from other
     # runs which have been prematurely terminated
-    ls -Directory | %{ 
-        $pngs = ls ("./{0}/*.png" -f $_.Name)
+    Get-ChildItem -Directory | %{ 
+        $pngs = Get-ChildItem ("./{0}/*.png" -f $_.Name)
         if( $pngs.Count -gt 0 ){  
             mv -Force ($pngs) ./  
         }
     }
 
-    echo "deleting old batches"
+    Write-Output "deleting old batches"
 
-    $dirs = (ls -Directory)
+    $dirs = (Get-ChildItem -Directory)
     # delete any previous batch folders
     if( $dirs.Count -gt 0 ) {
-        del $dirs -Force -Recurse
+        Remove-Item $dirs -Force -Recurse
     }
 
-    echo "deleting failed conversions"
+    Write-Output "deleting failed conversions"
 
     # delete any failed png conversions
-    ls *.png | where Length -eq 0 | del
+    Get-ChildItem *.png | where Length -eq 0 | Remove-Item
 
     $d = 0;
 
-    echo "creating new batches and executing"
+    Write-Output "creating new batches and executing"
 
     # process all the frames into batches
     Get-ChildItem | 
@@ -84,15 +84,22 @@ if(-not $skip_create_frames){
             }  } |
         Group-Object -Property {$_.Number % $batches} |
         ForEach-Object{
-            $gn = $_.Name
-            mkdir $gn -Force
+            $gn = $_.Number
+
+            New-Item -Name "$gn" -ItemType "directory" -Force
 
             $_.Group | ForEach-Object{ Copy-Item $_.Path $gn }
 
             Start-Job -ScriptBlock {param([string]$folder, [string]$gn, [string]$tempfolder)
 
-                C:/Windows/System32/cmd.exe /K "$env:anaconda\\Scripts\\activate.bat $env:anaconda && cd $env:rembg && python -m src.rembg.cmd.cli -p $folder\$tempfolder\$gn 2>&1 && exit"
-            
+                if($PSVersionTable.Platform -eq "Unix"){
+                    C:/Windows/System32/cmd.exe /K "$env:anaconda\\Scripts\\activate.bat $env:anaconda && cd $env:rembg && python -m src.rembg.cmd.cli -p $folder\$tempfolder\$gn 2>&1 && exit"
+                }else{
+                    Set-Location ~/git/rembg/
+                    python -m src.rembg.cmd.cli -p $folder/$tempfolder/$gn
+                }
+
+                
                 Copy-Item $folder/$tempfolder/$gn/*.png $folder
                 Remove-Item $folder/$tempfolder/$gn/ -Force -Recurse
 
@@ -103,9 +110,9 @@ if(-not $skip_create_frames){
     get-job | Wait-Job
 
     # num jpgs = num pngs
-    $equal_pngs = (ls *.jpg | measure).Count -eq (ls *.png | measure).Count
+    $equal_pngs = (Get-ChildItem *.jpg | Measure-Object).Count -eq (Get-ChildItem *.png | Measure-Object).Count
     # none of the conversations failed
-    $noempty_pngs = (ls *.png | where Length -eq 0 | measure ).Count -eq 0
+    $noempty_pngs = (Get-ChildItem *.png | Where-Object Length -eq 0 | Measure-Object ).Count -eq 0
 
     #check for every JPG file there is a corresponding non-empty PNG present
     if( $equal_pngs -and $noempty_pngs){
@@ -114,10 +121,10 @@ if(-not $skip_create_frames){
 
         ffmpeg -i %d.out.png -vcodec png ($target -replace "\..+", ".mov")
 
-        echo "moving mov file back to main dir"
+        Write-Output "moving mov file back to main dir"
         Move-Item *.mov ../
-        del $tempfolder -Recurse -Force
-        cd $orig_folder
+        Remove-Item $tempfolder -Recurse -Force
+        Set-Location $orig_folder
         
         # we good
         exit
@@ -125,6 +132,6 @@ if(-not $skip_create_frames){
 
 }
 
-echo "didnt detect conditions to create mov"
+Write-Output "didnt detect conditions to create mov"
 # go back
-cd $orig_folder
+Set-Location $orig_folder
