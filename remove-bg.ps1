@@ -12,15 +12,18 @@ if( $fps -gt 30 -or $fps -lt 0 ){
     $fps=24
 }
 
+$orig_folder = Get-Location
+
 $tempfolder = "f_{0}" -f (get-item $target).Name
 
 echo $tempfolder
 
-mkdir ./$tempfolder -Force
-cp $target ./$tempfolder
-cd $tempfolder
+$folder = (get-item $target).Directory.FullName
 
-$folder = Get-Location
+
+mkdir $folder/$tempfolder -Force
+cp $target $folder/$tempfolder
+cd $folder/$tempfolder
 
 # have we already exported the frames?
 $skip_create_frames = (ls *.jpg | measure).Count -gt 10
@@ -113,7 +116,7 @@ if(-not $skip_create_frames){
 
         echo "moving mov file back to main dir"
         Move-Item *.mov ../
-        cd ../
+        cd $orig_folder
         del $tempfolder -Recurse -Force
 
         # we good
@@ -124,4 +127,4 @@ if(-not $skip_create_frames){
 
 echo "didnt detect conditions to create mov"
 # go back
-cd ../
+cd $orig_folder
