@@ -12,7 +12,7 @@ if( $fps -gt 30 -or $fps -lt 0 ){
     $fps=24
 }
 
-$tempfolder = $target -replace ".mp4", ""
+$tempfolder = "f_{0}" -f (get-item $target).Name
 
 echo $tempfolder
 
@@ -109,7 +109,7 @@ if(-not $skip_create_frames){
 
         echo "equal jpgs and pngs detected, and all pngs are non-zero, making mov file..."
 
-        ffmpeg -i %d.out.png -vcodec png ($target -replace ".mp4", ".mov")
+        ffmpeg -i %d.out.png -vcodec png ($target -replace "\..+", ".mov")
 
         echo "moving mov file back to main dir"
         Move-Item *.mov ../
