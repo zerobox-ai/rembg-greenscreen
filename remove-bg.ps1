@@ -43,6 +43,26 @@ if(-not $skip_create_frames){
     # delete any failed png conversions
     Get-ChildItem *.png | where Length -eq 0 | Remove-Item
 
+    # we want this to run incrementally i.e. what if this was stopped previously
+    # half way through the conversion, solution is to delete all jpgs which already
+    # have corresponding non-zero pngs 
+
+    $pngs = @{}
+    $todelete = New-Object Collections.Generic.List[string]
+
+    Get-ChildItem *.png | ForEach-Object{ $pngs[$_.BaseName]=1 }
+    Get-ChildItem *.jpg | ForEach-Object{ 
+        if( $pngs["{0}.out" -f $_.BaseName] -eq 1 ) {
+            $todelete.Add($_.Name)
+        } 
+    }
+
+    # assuming this will be faster as an atomic operation
+    if( $todelete.Count -gt 0 ) {
+        Remove-Item $todelete
+        Write-Output ("Removed {0} JPGs as the PNGs were already good to go" -f $todelete.Count)
+    }
+
     Write-Output "converting JPG->PNG with virtual green screen"
 
     if($PSVersionTable.Platform -ne "Unix"){
