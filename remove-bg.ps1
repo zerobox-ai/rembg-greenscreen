@@ -2,6 +2,17 @@ param(
 [string]$target,    
 [int]$retry_times=5)
 
+# do we already have the .MOV file?
+if( Test-Path $target -eq False ){
+    Write-Output ("Can't find file {0}" -f $target)
+    exit
+}
+
+if( test-path "{0}.mov" -f (Get-ChildItem $target).BaseName ){
+    Write-Output ("MOV file already exists for {0}" -f $target)
+    exit
+}
+
 # compute the fps dynamically, so we don't waste compute on setting higher
 $fps_fraction = ffprobe -v 0 -of csv=p=0 -select_streams v:0 -show_entries stream=r_frame_rate $target
 $fps = [math]::ceiling( (Invoke-Expression $fps_fraction) )
@@ -20,7 +31,7 @@ Write-Output $tempfolder
 $folder = (get-item $target).Directory.FullName
 
 New-Item -Path "$folder" -Name "$tempfolder" -ItemType "directory" -Force
-cp $target $folder/$tempfolder
+Copy-Item $target $folder/$tempfolder
 Set-Location $folder/$tempfolder
 
 # have we already exported the frames?
