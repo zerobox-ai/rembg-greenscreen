@@ -3,7 +3,7 @@ param(
 [int]$retry_times=5)
 
 # do we already have the .MOV file?
-if( Test-Path $target -eq False ){
+if( -not(Test-Path $target) ){
     Write-Output ("Can't find file {0}" -f $target)
     exit
 }
