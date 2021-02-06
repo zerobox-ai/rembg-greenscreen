@@ -6,7 +6,7 @@ from distutils.util import strtobool
 import filetype
 from tqdm import tqdm
 
-from ..bg import remove
+from ..bg import remove, remove_many
 
 
 def main():
@@ -97,12 +97,13 @@ def main():
         files = set()
 
         for path in full_paths:
-            if os.path.isfile(path):
-                files.add(path)
-            else:
-                full_paths += (set(glob.glob(path + "/*")) - set(glob.glob(path + "/*.out.png")))
+            full_paths += (set(glob.glob(path + "/*")) - set(glob.glob(path + "/*.out.png")))
 
-        for fi in tqdm(files):
+        files = {}
+
+
+        for fi in full_paths[1:20]:
+
             fi_type = filetype.guess(fi)
 
             if fi_type is None:
@@ -110,20 +111,15 @@ def main():
             elif fi_type.mime.find("image") < 0:
                 continue
 
-            with open(fi, "rb") as input:
-                with open(os.path.splitext(fi)[0] + ".out.png", "wb") as output:
-                    w(
-                        output,
-                        remove(
-                            r(input),
-                            model_name=args.model,
-                            alpha_matting=args.alpha_matting,
-                            alpha_matting_foreground_threshold=args.alpha_matting_foreground_threshold,
-                            alpha_matting_background_threshold=args.alpha_matting_background_threshold,
-                            alpha_matting_erode_structure_size=args.alpha_matting_erode_size,
-                            alpha_matting_base_size=args.alpha_matting_base_size,
-                        ),
-                    )
+            with open(fi, "rb") as inp:
+                files[fi] = r(inp)
+
+        
+        input("Press Enter to continue...") 
+        input("Press Enter to continue...")
+        input("Press Enter to continue...")
+
+
 
     else:
         w(

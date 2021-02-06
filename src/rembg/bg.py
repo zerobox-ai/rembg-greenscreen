@@ -105,3 +105,28 @@ def remove(
     cutout.save(bio, "PNG")
 
     return bio.getbuffer()
+
+
+def remove_many(
+    images,
+    model_name="u2net"
+):
+    model = get_model(model_name)
+    
+    image_data = {}
+
+    for image_key in images.keys():
+        image_data[image_key] = Image.open(io.BytesIO(images[image_key])).convert("RGB").convert("L")
+
+    masks = detect.predict(model, image_data.values())
+
+
+
+    #   for mask in masks:
+
+      #  cutout = naive_cutout(img, mask)
+    #bio = io.BytesIO()
+       # cutout.save(bio, "PNG")
+
+    #return bio.getbuffer()
+

@@ -117,41 +117,20 @@ def norm_pred(d):
     return dn
 
 
-def preprocess(image):
-    label_3 = np.zeros(image.shape)
-    label = np.zeros(label_3.shape[0:2])
+def predict(net, items):
 
-    if 3 == len(label_3.shape):
-        label = label_3[:, :, 0]
-    elif 2 == len(label_3.shape):
-        label = label_3
+    images = np.zeros( (19, 320, 320) )
 
-    if 3 == len(image.shape) and 2 == len(label.shape):
-        label = label[:, :, np.newaxis]
-    elif 2 == len(image.shape) and 2 == len(label.shape):
-        image = image[:, :, np.newaxis]
-        label = label[:, :, np.newaxis]
+    arrays = [np.array(image) for image in items ]
 
-    transform = transforms.Compose(
-        [data_loader.RescaleT(320), data_loader.ToTensorLab(flag=0)]
-    )
-    sample = transform({"imidx": np.array([0]), "image": image, "label": label})
-
-    return sample
-
-
-def predict(net, item):
-
-    sample = preprocess(item)
-
+    master_images = np.array(arrays)[:,0:320, 0:320]
+ 
     with torch.no_grad():
 
         if torch.cuda.is_available():
             inputs_test = torch.cuda.FloatTensor(
-                sample["image"].unsqueeze(0).cuda().float()
-            )
-        else:
-            inputs_test = torch.FloatTensor(sample["image"].unsqueeze(0).float())
+                np.expand_dims(master_images, 0)
+            ).cuda().float()
 
         d1, d2, d3, d4, d5, d6, d7 = net(inputs_test)
 
