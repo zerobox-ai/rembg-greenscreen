@@ -121,7 +121,7 @@ if($count_jpgs -lt 100){
 
         Write-Output "equal jpgs and pngs detected, and all pngs are non-zero, making mov file..."
 
-        ffmpeg -i %d.out.png -vcodec png ($target -replace "\..+?", ".mov")
+        ffmpeg -i %d.out.png -vcodec png ("{0}.mov" -f (Get-ChildItem $target).BaseName)
 
         if( Test-Path *.mov ) {
 
