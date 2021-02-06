@@ -10,9 +10,8 @@ if( -not(Test-Path $target) ){
 }
 
 # if there are PNGs in this folder you probably called this script wrong
-# this depends on the previus test passing
-if( test-path "{0}/*.png" -f (get-item $target).FullName ){
-    Write-Output ("PNGs detected in the path of your target")
+if( test-path "./*.png" ){
+    Write-Output ("PNGs detected here, you probably messed up")
     exit
 }
 
@@ -44,15 +43,27 @@ Copy-Item $target $folder/$tempfolder
 Set-Location $folder/$tempfolder
 
 # have we already exported the frames?
-$skip_create_frames = (Get-ChildItem *.jpg | Measure-Object).Count -gt 10
+$count_jpg_filename = "count_jpgs.txt"
+$skip_create_frames = Test-Path $count_jpg_filename
 
 # turn video into frames
 if(-not $skip_create_frames){
     Remove-Item *.jpg
     # now halfing the res of the alpha matte, gives a pretty big speedup
     ffmpeg -i $target -vf "fps=$fps,scale=iw*.5:ih*.5" %d.jpg
+
+    #we need to record how many jpgs there are
+    $count_jpgs = (Get-ChildItem *.jpg | Measure-Object).Count
+    $count_jpgs | out-file -FilePath $count_jpg_filename
+
 }else{
+    $count_jpgs = [int](Get-Content $count_jpg_filename)
     Write-Output "skipping creation of frames..."
+}
+
+if($count_jpgs -lt 100){
+    Write-Output ("Exiting... looks like there are not enough JPGs for this video in {0}" -f $count_jpg_filename)
+    exit
 }
 
 # retry failed ones
@@ -62,6 +73,13 @@ if(-not $skip_create_frames){
 
     # delete any failed png conversions
     Get-ChildItem *.png | where Length -eq 0 | Remove-Item
+
+    # are there any .out.out pngs? This means the rembg needs the glob update applied
+    if( Test-Path *.out.out*.png ){
+        Write-Output "*.out.out*.png detected, fix your rembg -- deleting and exiting"
+        Remove-Item (Get-ChildItem *.out.out*.png)
+        exit
+    }
 
     # we want this to run incrementally i.e. what if this was stopped previously
     # half way through the conversion, solution is to delete all jpgs which already
@@ -93,17 +111,17 @@ if(-not $skip_create_frames){
 
     $no_pngs = (Get-ChildItem *.png | Measure-Object).Count
 
-    # num jpgs = num pngs
-    $equal_pngs = $no_pngs -gt 0 -and $no_pngs -eq (Get-ChildItem *.jpg | Measure-Object).Count
+    # num jpgs = num pngs, #we use the cached version of $count_jpgs as we are deleting them on the fly
+    $equal_pngs = $no_pngs -gt 0 -and $no_pngs -eq $count_jpgs
     # none of the conversations failed
     $noempty_pngs = $no_pngs -gt 10 -and (Get-ChildItem *.png | Where-Object Length -eq 0 | Measure-Object ).Count -eq 0
 
     #check for every JPG file there is a corresponding non-empty PNG present and there are some pngs ready to go
     if( $equal_pngs -and $noempty_pngs){
 
-        echo "equal jpgs and pngs detected, and all pngs are non-zero, making mov file..."
+        Write-Output "equal jpgs and pngs detected, and all pngs are non-zero, making mov file..."
 
-        ffmpeg -i %d.out.png -vcodec png ($target -replace "\..+", ".mov")
+        ffmpeg -i %d.out.png -vcodec png ($target -replace "\..+?", ".mov")
 
         if( Test-Path *.mov ) {
 
@@ -119,6 +137,9 @@ if(-not $skip_create_frames){
 
          # we good
          exit
+    }
+    else{
+        Write-Output "didn't detect equal jpg-png"
     }
 }
 
