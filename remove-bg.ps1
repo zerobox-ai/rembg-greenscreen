@@ -2,12 +2,21 @@ param(
 [string]$target,    
 [int]$retry_times=5)
 
-# do we already have the .MOV file?
+
+# does the target even exist?
 if( -not(Test-Path $target) ){
     Write-Output ("Can't find file {0}" -f $target)
     exit
 }
 
+# if there are PNGs in this folder you probably called this script wrong
+# this depends on the previus test passing
+if( test-path "{0}/*.png" -f (get-item $target).FullName ){
+    Write-Output ("PNGs detected in the path of your target")
+    exit
+}
+
+# do we already have the .MOV file?
 if( test-path "{0}.mov" -f (Get-ChildItem $target).BaseName ){
     Write-Output ("MOV file already exists for {0}" -f $target)
     exit
