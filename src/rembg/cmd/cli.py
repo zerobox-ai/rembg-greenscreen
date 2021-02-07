@@ -1,8 +1,10 @@
 import argparse
 import glob
+import io
 import os
 from distutils.util import strtobool
-
+from itertools import islice, chain
+from PIL import Image
 import filetype
 from tqdm import tqdm
 
@@ -71,6 +73,15 @@ def main():
     )
 
     ap.add_argument(
+        "-b",
+        "--batchsize",
+        default=10,
+        nargs="+",
+        type=int,
+        help="GPU batchsize for the GPU"
+    )
+
+    ap.add_argument(
         "-o",
         "--output",
         nargs="?",
@@ -94,32 +105,34 @@ def main():
 
     if args.path:
         full_paths = [os.path.abspath(path) for path in args.path]
-        files = set()
-
-        for path in full_paths:
-            full_paths += (set(glob.glob(path + "/*")) - set(glob.glob(path + "/*.out.png")))
-
-        files = {}
-
-
-        for fi in full_paths[1:20]:
-
-            fi_type = filetype.guess(fi)
-
-            if fi_type is None:
-                continue
-            elif fi_type.mime.find("image") < 0:
-                continue
-
-            with open(fi, "rb") as inp:
-                files[fi] = r(inp)
-
         
-        input("Press Enter to continue...") 
-        input("Press Enter to continue...")
-        input("Press Enter to continue...")
+        for path in full_paths:
+            files = (set(glob.glob(path + "/*")) - set(glob.glob(path + "/*.out.png")))
 
+        def batch(iterable, batch_size):
+            while batch := list(islice(iterable, batch_size)):
+                yield batch
 
+        def get_files():
+            for fi in tqdm(files):
+                fi_type = filetype.guess(fi)
+
+                if fi_type is None:
+                    continue
+                elif fi_type.mime.find("image") < 0:
+                    continue
+
+                with open(fi, "rb") as inp:
+                    yield fi, Image.open(io.BytesIO(r(inp))).convert("RGB")
+
+        for batch in batch(get_files(), args.batchsize):
+            for stream in remove_many(batch):
+                fn = os.path.splitext(stream[1])[0] + ".out.png"
+                with open(fn, "wb") as output:
+                    w(
+                        output,
+                        stream[0]
+                    )
 
     else:
         w(

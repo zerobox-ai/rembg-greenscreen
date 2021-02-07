@@ -14,7 +14,7 @@ from PIL import Image
 from skimage import transform
 from torchvision import transforms
 from tqdm import tqdm
-
+from sklearn.preprocessing import normalize
 from . import data_loader, u2net
 
 
@@ -119,28 +119,32 @@ def norm_pred(d):
 
 def predict(net, items):
 
-    images = np.zeros( (19, 320, 320) )
+    batch = len(items)
+    arrays = [np.array(image) for image in items.values() ]
+    master_images = np.array(arrays)[:,0:320, 0:320, 0:3]
+    master_images = np.moveaxis(master_images, 3, 1)
+    master_images = master_images / 255
 
-    arrays = [np.array(image) for image in items ]
-
-    master_images = np.array(arrays)[:,0:320, 0:320]
- 
     with torch.no_grad():
 
         if torch.cuda.is_available():
             inputs_test = torch.cuda.FloatTensor(
-                np.expand_dims(master_images, 0)
+               master_images 
             ).cuda().float()
 
         d1, d2, d3, d4, d5, d6, d7 = net(inputs_test)
 
+        # d1 == out torch.Size([batch, 1, 320, 320])
         pred = d1[:, 0, :, :]
         predict = norm_pred(pred)
 
         predict = predict.squeeze()
         predict_np = predict.cpu().detach().numpy()
-        img = Image.fromarray(predict_np * 255).convert("RGB")
 
-        del d1, d2, d3, d4, d5, d6, d7, pred, predict, predict_np, inputs_test, sample
+        imgs = [ Image.fromarray(predict_np[i, :, :] * 255).convert("L") for i in range(batch) ]
 
-        return img
+        del d1, d2, d3, d4, d5, d6, d7, pred, predict, predict_np, inputs_test
+
+        torch.cuda.empty_cache()
+
+        return imgs

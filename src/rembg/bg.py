@@ -61,12 +61,10 @@ def alpha_matting_cutout(
 
     return cutout
 
-
 def naive_cutout(img, mask):
     empty = Image.new("RGBA", (img.size), 0)
     cutout = Image.composite(img, empty, mask.resize(img.size, Image.LANCZOS))
     return cutout
-
 
 @functools.lru_cache(maxsize=None)
 def get_model(model_name):
@@ -74,7 +72,6 @@ def get_model(model_name):
         return detect.load_model(model_name="u2netp")
     else:
         return detect.load_model(model_name="u2net")
-
 
 def remove(
     data,
@@ -113,20 +110,18 @@ def remove_many(
 ):
     model = get_model(model_name)
     
-    image_data = {}
+    # for now crop to 320^2
+    # image_data[image_key] = image_data[image_key].crop((200, 200, 520, 520)) 
 
-    for image_key in images.keys():
-        image_data[image_key] = Image.open(io.BytesIO(images[image_key])).convert("RGB").convert("L")
+    image_data = {c[0]:c[1] for c in images}
 
-    masks = detect.predict(model, image_data.values())
+    # these are also PIL images
+    masks = detect.predict(model, image_data )
 
+    for combo in zip( image_data.values(), image_data.keys(), masks ):
+        cutout = naive_cutout(combo[0], combo[2])
 
-
-    #   for mask in masks:
-
-      #  cutout = naive_cutout(img, mask)
-    #bio = io.BytesIO()
-       # cutout.save(bio, "PNG")
-
-    #return bio.getbuffer()
+        bio = io.BytesIO()
+        cutout.save(bio, "PNG")
+        yield (bio.getbuffer(), combo[1])
 
