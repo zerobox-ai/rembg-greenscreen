@@ -50,7 +50,7 @@ $skip_create_frames = Test-Path $count_jpg_filename
 if(-not $skip_create_frames){
     Remove-Item *.jpg
     # now halfing the res of the alpha matte, gives a pretty big speedup
-    ffmpeg -i $target -vf "fps=$fps,scale=320:320" %d.jpg
+    ffmpeg -i $target -vf "fps=$fps,scale=iw*.3:ih*.3" %d.jpg
 
     #we need to record how many jpgs there are
     $count_jpgs = (Get-ChildItem *.jpg | Measure-Object).Count

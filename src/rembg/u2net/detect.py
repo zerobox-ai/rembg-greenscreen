@@ -16,7 +16,7 @@ from torchvision import transforms
 from tqdm import tqdm
 from sklearn.preprocessing import normalize
 from . import data_loader, u2net
-
+from skimage.transform import rescale, resize, downscale_local_mean
 
 def download_file_from_google_drive(id, fname, destination):
     head, tail = os.path.split(destination)
@@ -120,10 +120,32 @@ def norm_pred(d):
 def predict(net, items):
 
     batch = len(items)
+
+    # convert to BGR
     arrays = [np.array(image) for image in items.values() ]
-    master_images = np.array(arrays)[:,0:320, 0:320, 0:3]
-    master_images = np.moveaxis(master_images, 3, 1)
-    master_images = master_images / 255
+    arrays = [transform.resize( image, (320, 320), mode="constant" ) for image in arrays]
+
+    # color grading code which was in ToTensorLab
+    # the NN was probably quite sensitive to the normalisation
+    # the performance degrades significantly without this
+    master_images = np.array(arrays)
+
+    # change the r,g,b to b,r,g from [0,255] to [0,1]
+    master_images = (master_images - np.min(master_images)) / (np.max(master_images)-np.min(master_images))
+    
+    #master_images[:, :, :, 0] = (master_images[:, :, :, 0] - 0.485) / 0.229
+    #master_images[:, :, :, 1] = (master_images[:, :, :, 1] - 0.456) / 0.224
+    #master_images[:, :, :, 2] = (master_images[:, :, :, 2] - 0.406) / 0.225
+
+    master_images[:, :, 0] = (master_images[:, :, 0] - np.mean(master_images[:, :, 0])) / np.std(master_images[:, :, 0])
+    master_images[:, :, 1] = (master_images[:, :, 1] - np.mean(master_images[:, :, 1])) / np.std(master_images[:, :, 1])
+    master_images[:, :, 2] = (master_images[:, :, 2] - np.mean(master_images[:, :, 2])) / np.std(master_images[:, :, 2])
+
+    #RGB->BGR
+    master_images = master_images[:,:,:,::-1]
+
+    # move color chanel to second
+    master_images = np.moveaxis(arrays, 3, 1)
 
     with torch.no_grad():
 

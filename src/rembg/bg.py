@@ -110,9 +110,6 @@ def remove_many(
 ):
     model = get_model(model_name)
     
-    # for now crop to 320^2
-    # image_data[image_key] = image_data[image_key].crop((200, 200, 520, 520)) 
-
     image_data = {c[0]:c[1] for c in images}
 
     # these are also PIL images
