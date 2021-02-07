@@ -75,7 +75,7 @@ def main():
     ap.add_argument(
         "-b",
         "--batchsize",
-        default=10,
+        default=15,
         nargs="+",
         type=int,
         help="GPU batchsize for the GPU"
@@ -125,9 +125,9 @@ def main():
                 with open(fi, "rb") as inp:
                     yield fi, Image.open(io.BytesIO(r(inp))).convert("RGB")
 
-        for batch in batch(get_files(), args.batchsize):
-            for stream in remove_many(batch):
-                fn = os.path.splitext(stream[1])[0] + ".out.png"
+        for gpu_batch in batch(get_files(), args.batchsize):
+            for stream in remove_many(gpu_batch):
+                fn = os.path.splitext(stream[1][0][0])[0] + ".out.png"
                 with open(fn, "wb") as output:
                     w(
                         output,

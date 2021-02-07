@@ -49,8 +49,9 @@ $skip_create_frames = Test-Path $count_jpg_filename
 # turn video into frames
 if(-not $skip_create_frames){
     Remove-Item *.jpg
-    # now halfing the res of the alpha matte, gives a pretty big speedup
-    ffmpeg -i $target -vf "fps=$fps,scale=iw*.3:ih*.3" %d.jpg
+    # making the resolutuon of the images as small as possible, the NN only takes in 320^2
+    # this gives us a significant speed up on IO and preprocessing
+    ffmpeg -i $target -vf "fps=30,scale=-1:320" %d.bmp
 
     #we need to record how many jpgs there are
     $count_jpgs = (Get-ChildItem *.jpg | Measure-Object).Count

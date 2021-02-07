@@ -70,12 +70,14 @@ def naive_cutout(img, mask):
 def get_model(model_name):
     if model_name == "u2netp":
         return detect.load_model(model_name="u2netp")
+    elif (model_name == "u2net_human_seg"):
+        return detect.load_model(model_name="u2net_human_seg")
     else:
         return detect.load_model(model_name="u2net")
 
 def remove(
     data,
-    model_name="u2net",
+    model_name="u2net_human_seg",
     alpha_matting=False,
     alpha_matting_foreground_threshold=240,
     alpha_matting_background_threshold=10,
@@ -105,20 +107,20 @@ def remove(
 
 
 def remove_many(
-    images,
-    model_name="u2net"
+    image_data,
+    model_name="u2net_human_seg"
 ):
     model = get_model(model_name)
     
-    image_data = {c[0]:c[1] for c in images}
+    master_images = detect.preprocess(image_data)
 
     # these are also PIL images
-    masks = detect.predict(model, image_data )
+    masks = detect.predict(model, master_images )
 
-    for combo in zip( image_data.values(), image_data.keys(), masks ):
-        cutout = naive_cutout(combo[0], combo[2])
+    for combo in zip( image_data, masks ):
+        cutout = naive_cutout(combo[0][1], combo[1])
 
         bio = io.BytesIO()
         cutout.save(bio, "PNG")
-        yield (bio.getbuffer(), combo[1])
+        yield (bio.getbuffer(), combo)
 

@@ -16,7 +16,7 @@ w = lambda o, data: o.buffer.write(data) if hasattr(o, "buffer") else o.write(da
 full_paths = ["C:\\Users\\tim\\Videos\\test"]
 files = set()
 
-batch_size = 20
+gpu_batch_size = 10
 
 for path in full_paths:
     files = (set(glob.glob(path + "/*")) - set(glob.glob(path + "/*.out.png")))
@@ -37,9 +37,10 @@ def get_files():
         with open(fi, "rb") as inp:
             yield fi, Image.open(io.BytesIO(r(inp))).convert("RGB")
 
-for batch in batch(get_files(), batch_size):
-    for stream in remove_many(batch):
-        fn = os.path.splitext(stream[1])[0] + ".out.png"
+
+for gpu_batch in batch(get_files(), gpu_batch_size):
+    for stream in remove_many(gpu_batch):
+        fn = os.path.splitext(stream[1][0][0])[0] + ".out.png"
         with open(fn, "wb") as output:
             w(
                 output,

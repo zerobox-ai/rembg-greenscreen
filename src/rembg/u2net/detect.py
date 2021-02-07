@@ -70,6 +70,22 @@ def load_model(model_name: str = "u2net"):
                 path,
             )
 
+    elif model_name == "u2net_human_seg":
+        net = u2net.U2NET(3, 1)
+        path = os.environ.get(
+            "U2NET_PATH",
+            os.path.expanduser(os.path.join("~", ".u2net", model_name + ".pth")),
+        )
+        if (
+            not os.path.exists(path)
+            or hasher.md5(path) != "09fb4e49b7f785c9f855baf94916840a"
+        ):
+            download_file_from_google_drive(
+                "1-Yg0cxgrNhHP-016FPdp902BR-kSsA4P",
+                "u2net.pth",
+                path,
+            )
+
     elif model_name == "u2net":
         net = u2net.U2NET(3, 1)
         path = os.environ.get(
@@ -116,13 +132,9 @@ def norm_pred(d):
 
     return dn
 
-
-def predict(net, items):
-
-    batch = len(items)
-
+def preprocess(items):    
     # convert to BGR
-    arrays = [np.array(image) for image in items.values() ]
+    arrays = [np.array(image[1]) for image in items ]
     arrays = [transform.resize( image, (320, 320), mode="constant" ) for image in arrays]
 
     # color grading code which was in ToTensorLab
@@ -133,10 +145,6 @@ def predict(net, items):
     # change the r,g,b to b,r,g from [0,255] to [0,1]
     master_images = (master_images - np.min(master_images)) / (np.max(master_images)-np.min(master_images))
     
-    #master_images[:, :, :, 0] = (master_images[:, :, :, 0] - 0.485) / 0.229
-    #master_images[:, :, :, 1] = (master_images[:, :, :, 1] - 0.456) / 0.224
-    #master_images[:, :, :, 2] = (master_images[:, :, :, 2] - 0.406) / 0.225
-
     master_images[:, :, 0] = (master_images[:, :, 0] - np.mean(master_images[:, :, 0])) / np.std(master_images[:, :, 0])
     master_images[:, :, 1] = (master_images[:, :, 1] - np.mean(master_images[:, :, 1])) / np.std(master_images[:, :, 1])
     master_images[:, :, 2] = (master_images[:, :, 2] - np.mean(master_images[:, :, 2])) / np.std(master_images[:, :, 2])
@@ -146,6 +154,12 @@ def predict(net, items):
 
     # move color chanel to second
     master_images = np.moveaxis(arrays, 3, 1)
+
+    return master_images
+
+def predict(net, master_images):
+
+    batch = master_images.shape[0]
 
     with torch.no_grad():
 
@@ -163,7 +177,7 @@ def predict(net, items):
         predict = predict.squeeze()
         predict_np = predict.cpu().detach().numpy()
 
-        imgs = [ Image.fromarray(predict_np[i, :, :] * 255).convert("L") for i in range(batch) ]
+        imgs = [ Image.fromarray(predict_np[i, :, :] * 255, mode="L") for i in range(batch) ]
 
         del d1, d2, d3, d4, d5, d6, d7, pred, predict, predict_np, inputs_test
 
