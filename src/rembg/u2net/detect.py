@@ -82,7 +82,7 @@ def load_model(model_name: str = "u2net"):
         ):
             download_file_from_google_drive(
                 "1-Yg0cxgrNhHP-016FPdp902BR-kSsA4P",
-                "u2net.pth",
+                "u2net_human.pth",
                 path,
             )
 
@@ -134,27 +134,25 @@ def norm_pred(d):
 
 # I have tried pretty much turning this off, it makes no difference to throughput
 def preprocess(items):    
-    # convert to BGR
-    arrays = [np.array(image[1]) for image in items ]
-    arrays = [transform.resize( image, (320, 320), mode="constant" ) for image in arrays]
+
+    arrays = [np.array((image[1].resize((320,320)))) for image in items ]
 
     # color grading code which was in ToTensorLab
     # the NN was probably quite sensitive to the normalisation
     # the performance degrades significantly without this
-    master_images = np.array(arrays)
+    master_images = np.array(arrays) / 256
+   # master_images[:, :, 0] = (master_images[:, :, 0] - np.mean(master_images[:, :, 0])) / np.std(master_images[:, :, 0])
+   # master_images[:, :, 1] = (master_images[:, :, 1] - np.mean(master_images[:, :, 1])) / np.std(master_images[:, :, 1])
+    #master_images[:, :, 2] = (master_images[:, :, 2] - np.mean(master_images[:, :, 2])) / np.std(master_images[:, :, 2])
 
     # change the r,g,b to b,r,g from [0,255] to [0,1]
-    master_images = (master_images - np.min(master_images)) / (np.max(master_images)-np.min(master_images))
+    #master_images = (master_images - np.min(master_images)) / (np.max(master_images)-np.min(master_images))
     
-    master_images[:, :, 0] = (master_images[:, :, 0] - np.mean(master_images[:, :, 0])) / np.std(master_images[:, :, 0])
-    master_images[:, :, 1] = (master_images[:, :, 1] - np.mean(master_images[:, :, 1])) / np.std(master_images[:, :, 1])
-    master_images[:, :, 2] = (master_images[:, :, 2] - np.mean(master_images[:, :, 2])) / np.std(master_images[:, :, 2])
-
     #RGB->BGR
-    master_images = master_images[:,:,:,::-1]
+    #master_images = master_images[:,:,:,::-1]
 
     # move color chanel to second
-    master_images = np.moveaxis(arrays, 3, 1)
+    master_images = np.moveaxis(master_images, 3, 1)
 
     return master_images
 
@@ -175,10 +173,10 @@ def predict(net, master_images):
         pred = d1[:, 0, :, :]
         predict = norm_pred(pred)
 
-        predict = predict.squeeze()
+       # predict = predict.squeeze()
         predict_np = predict.cpu().detach().numpy()
 
-        imgs = [ Image.fromarray(predict_np[i, :, :] * 255, mode="L") for i in range(batch) ]
+        imgs = [ Image.fromarray(predict_np[i, :, :] * 256, mode="L") for i in range(batch) ]
 
         del d1, d2, d3, d4, d5, d6, d7, pred, predict, predict_np, inputs_test
 
