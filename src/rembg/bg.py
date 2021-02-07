@@ -62,8 +62,13 @@ def alpha_matting_cutout(
     return cutout
 
 def naive_cutout(img, mask):
-    empty = Image.new("RGBA", (img.size), 0)
-    cutout = Image.composite(img, empty, mask.resize(img.size, Image.LANCZOS))
+
+    pil_image = Image.fromarray(img, mode="RGB")
+
+    empty = Image.new("RGBA", (pil_image.size), 0)
+    # this is an argument to mask on the high res version, you get bicubic interpolation
+    # on the geometry, I hadn't thought of that, higher cost though N^2
+    cutout = Image.composite(pil_image, empty, mask.resize(pil_image.size, Image.LANCZOS))
     return cutout
 
 @functools.lru_cache(maxsize=None)
@@ -119,7 +124,7 @@ def remove_many(
 
     for combo in zip( image_data, masks ):
         # this costs us about 2 images/s 
-        cutout = naive_cutout(combo[0][1], combo[1])
+        cutout = naive_cutout(combo[0], combo[1])
 
         bio = io.BytesIO()
         cutout.save(bio, "PNG")
