@@ -140,7 +140,7 @@ def predict(net, items):
     np_arrays = [ np.array(image).astype(np.float) for image in resized]
     master_images = np.array(np_arrays)
     #RGB->BGR
-    master_images = master_images[:,:,:,::-1]
+    #master_images = master_images[:,:,:,::-1]
 
     master_images = master_images / 255
 
