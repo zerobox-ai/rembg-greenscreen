@@ -132,33 +132,21 @@ def norm_pred(d):
 
     return dn
 
-# I have tried pretty much turning this off, it makes no difference to throughput
-def preprocess(items):    
+def predict(net, items):
 
-    arrays = [np.array((image[1].resize((320,320)))) for image in items ]
+    batch = len(items)
 
-    # color grading code which was in ToTensorLab
-    # the NN was probably quite sensitive to the normalisation
-    # the performance degrades significantly without this
-    master_images = np.array(arrays) / 256
-   # master_images[:, :, 0] = (master_images[:, :, 0] - np.mean(master_images[:, :, 0])) / np.std(master_images[:, :, 0])
-   # master_images[:, :, 1] = (master_images[:, :, 1] - np.mean(master_images[:, :, 1])) / np.std(master_images[:, :, 1])
-    #master_images[:, :, 2] = (master_images[:, :, 2] - np.mean(master_images[:, :, 2])) / np.std(master_images[:, :, 2])
-
-    # change the r,g,b to b,r,g from [0,255] to [0,1]
-    #master_images = (master_images - np.min(master_images)) / (np.max(master_images)-np.min(master_images))
-    
+    resized = [ image[1].resize((320,320)) for image in items ]
+    np_arrays = [ np.array(image).astype(np.float) for image in resized]
+    master_images = np.array(np_arrays)
     #RGB->BGR
-    #master_images = master_images[:,:,:,::-1]
+    master_images = master_images[:,:,:,::-1]
 
+    master_images = master_images / 255
+
+    
     # move color chanel to second
     master_images = np.moveaxis(master_images, 3, 1)
-
-    return master_images
-
-def predict(net, master_images):
-
-    batch = master_images.shape[0]
 
     with torch.no_grad():
 
@@ -176,7 +164,7 @@ def predict(net, master_images):
        # predict = predict.squeeze()
         predict_np = predict.cpu().detach().numpy()
 
-        imgs = [ Image.fromarray(predict_np[i, :, :] * 256, mode="L") for i in range(batch) ]
+        imgs = [ Image.fromarray( (predict_np[i, :, :] * 255).astype(np.uint8), mode="L") for i in range(batch) ]
 
         del d1, d2, d3, d4, d5, d6, d7, pred, predict, predict_np, inputs_test
 

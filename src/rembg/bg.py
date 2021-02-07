@@ -111,11 +111,9 @@ def remove_many(
     model_name="u2net_human_seg"
 ):
     model = get_model(model_name)
-    
-    master_images = detect.preprocess(image_data)
 
     # these are also PIL images
-    masks = detect.predict(model, master_images )
+    masks = detect.predict(model, image_data )
 
     for combo in zip( image_data, masks ):
         # this costs us about 2 images/s 
