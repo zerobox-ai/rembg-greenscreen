@@ -76,9 +76,8 @@ def main():
         "-b",
         "--batchsize",
         default=15,
-        nargs="+",
         type=int,
-        help="GPU batchsize for the GPU"
+        help="GPU batchsize"
     )
 
     ap.add_argument(

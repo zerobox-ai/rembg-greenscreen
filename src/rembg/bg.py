@@ -118,6 +118,7 @@ def remove_many(
     masks = detect.predict(model, master_images )
 
     for combo in zip( image_data, masks ):
+        # this costs us about 2 images/s 
         cutout = naive_cutout(combo[0][1], combo[1])
 
         bio = io.BytesIO()

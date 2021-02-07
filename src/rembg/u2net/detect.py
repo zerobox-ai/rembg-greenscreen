@@ -132,6 +132,7 @@ def norm_pred(d):
 
     return dn
 
+# I have tried pretty much turning this off, it makes no difference to throughput
 def preprocess(items):    
     # convert to BGR
     arrays = [np.array(image[1]) for image in items ]

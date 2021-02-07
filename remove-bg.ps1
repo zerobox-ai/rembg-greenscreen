@@ -1,6 +1,7 @@
 param(
 [string]$target,    
-[int]$retry_times=5)
+[int]$retry_times=5, 
+[int]$highquality=1)
 
 
 # does the target even exist?
@@ -51,8 +52,13 @@ if(-not $skip_create_frames){
     Remove-Item *.jpg
     # making the resolutuon of the images as small as possible, the NN only takes in 320^2
     # this gives us a significant speed up on IO and preprocessing
-    ffmpeg -i $target -vf "fps=30,scale=-1:320" %d.bmp
-
+    if($highquality){
+        ffmpeg -i $target -vf "fps=30,scale=-1:320" %d.bmp
+    }
+    else{
+        ffmpeg -i $target -vf "fps=30,scale=-1:320" -qscale:v 2 %d.jpg
+    }
+    
     #we need to record how many jpgs there are
     $count_jpgs = (Get-ChildItem *.jpg | Measure-Object).Count
     $count_jpgs | out-file -FilePath $count_jpg_filename
