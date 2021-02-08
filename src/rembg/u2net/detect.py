@@ -136,7 +136,7 @@ def predict(net, items):
 
     batch = len(items)
 
-    resized = [ transform.resize(image,(320,320)) for image in items ]
+    resized = [ transform.resize(image,(320,320)) for image in items ] # expensive
     np_arrays = [ np.array(image).astype(np.float) for image in resized]
     master_images = np.array(np_arrays)
     #RGB->BGR
