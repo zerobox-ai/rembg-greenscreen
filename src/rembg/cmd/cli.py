@@ -7,9 +7,16 @@ from itertools import islice, chain
 from PIL import Image
 import filetype
 from tqdm import tqdm
-
+import moviepy.editor as mpy
+import numpy as np
+import ffmpeg
+import cv2
+import subprocess as sp
 from ..bg import remove, remove_many
 
+def batch(iterable, batch_size):
+            while batch := list(islice(iterable, batch_size)):
+                yield batch
 
 def main():
     ap = argparse.ArgumentParser()
@@ -73,6 +80,13 @@ def main():
     )
 
     ap.add_argument(
+        "-g",
+        "--greenscreen",
+        type=str,
+        help="Path of a video.",
+    )
+
+    ap.add_argument(
         "-b",
         "--batchsize",
         default=15,
@@ -85,7 +99,7 @@ def main():
         "--output",
         nargs="?",
         default="-",
-        type=argparse.FileType("wb"),
+        type=str,
         help="Path to the output png image.",
     )
 
@@ -108,10 +122,6 @@ def main():
         for path in full_paths:
             files = (set(glob.glob(path + "/*")) - set(glob.glob(path + "/*.out.png")))
 
-        def batch(iterable, batch_size):
-            while batch := list(islice(iterable, batch_size)):
-                yield batch
-
         def get_files():
             for fi in tqdm(files):
                 fi_type = filetype.guess(fi)
@@ -133,8 +143,47 @@ def main():
                         stream[0]
                     )
 
-    else:
-        w(
+    elif args.greenscreen:
+
+        def get_input_frames():
+            clip = mpy.VideoFileClip(args.greenscreen)
+            clip_resized = clip.resize(height=320)
+            img_number = 0
+
+            for frame in clip_resized.iter_frames(dtype="float"):
+                yield frame
+
+        def get_output_frames():
+            for gpu_batch in batch(get_input_frames(), args.batchsize):
+                for mask in remove_many(gpu_batch):
+                    yield mask
+
+        command = None
+        proc = None
+
+        for image in get_output_frames():
+
+            if command is None: 
+                command = ['FFMPEG',
+                    '-y',
+                    '-f', 'rawvideo',
+                    '-vcodec','rawvideo',
+                    '-s', F"{image.shape[1]},320",
+                    '-pix_fmt', 'bgr24',
+                    '-r', "30", # for now I am hardcoding it, I can always resize the clip in premiere anyway 
+                    '-i', '-',  
+                    '-an',
+                    '-vcodec', 'mpeg4',   
+                    '-b:v', '2000k',    
+                    args.output ]
+                proc = sp.Popen(command, stdin=sp.PIPE)
+
+            proc.stdin.write(image.tostring())
+
+        proc.stdin.close()
+        proc.wait()
+
+    else: w(
             args.output,
             remove(
                 r(args.input),

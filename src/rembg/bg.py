@@ -124,7 +124,7 @@ def remove_many(
         # this costs us about 2 images/s 
         #cutout = naive_cutout(combo[0], combo[1])
 
-        mask = combo[1].resize( (combo[0].shape[0], combo[0].shape[1]), Image.LANCZOS)
+        mask = combo[1].resize( (combo[0].shape[1], combo[0].shape[0]), Image.LANCZOS)
 
         mask = (np.array( mask ) ).astype(np.uint8)
       
