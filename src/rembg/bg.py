@@ -6,7 +6,7 @@ from PIL import Image
 from pymatting.alpha.estimate_alpha_cf import estimate_alpha_cf
 from pymatting.foreground.estimate_foreground_ml import estimate_foreground_ml
 from pymatting.util.util import stack_images
-from scipy.ndimage.morphology import binary_erosion
+
 
 from .u2net import detect
 
@@ -122,9 +122,13 @@ def remove_many(
 
     for combo in zip( image_data, masks ):
         # this costs us about 2 images/s 
-        cutout = naive_cutout(combo[0], combo[1])
+        #cutout = naive_cutout(combo[0], combo[1])
 
-        bio = io.BytesIO()
-        cutout.save(bio, "PNG")
-        yield (bio.getbuffer(), combo)
+        mask = combo[1].resize( (combo[0].shape[0], combo[0].shape[1]), Image.LANCZOS)
+
+        mask = (np.array( mask ) ).astype(np.uint8)
+      
+        thredmask = np.dstack([mask,mask,mask])
+
+        yield thredmask
 

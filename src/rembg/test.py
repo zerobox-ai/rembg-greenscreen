@@ -12,50 +12,65 @@ from .bg import remove, remove_many
 from itertools import islice, chain
 import moviepy.editor as mpy
 import numpy as np
+import cv2
+import ffmpeg
+import cv2
+import subprocess as sp
+
+gpu_batch_size = 10
 
 def batch(iterable, batch_size):
     while batch := list(islice(iterable, batch_size)):
         yield batch
 
-gpu_batch_size = 10
+width = None
 
-def get_frames():
-    clip = mpy.VideoFileClip("C:\\Users\\tim\\Videos\\test\\pedro_domingos-1612544536600-CFR.mp4")
-    clip_resized = clip.resize(width=320, height=320)
+def get_input_frames():
+    clip = mpy.VideoFileClip("C:\\Users\\tim\\Videos\\test\\2021-01-30 20-28-16.mp4")
+    clip_resized = clip.resize(height=320)
     img_number = 0
-    for frame in tqdm(clip_resized.iter_frames(dtype="uint8")):
-        # do something with the frame (a HxWx3 numpy array)
 
-        img_number = img_number + 1
+    global width
 
-        frame = np.swapaxes(frame, 0,1)
+    for frame in clip_resized.iter_frames(dtype="float"):
 
-        frame=frame[ 0:320, :,: ]
-
-        #resize it
-        #frame = transform.resize( frame, (320, 320) )
-
-        #Image.fromarray(frame, mode="RGB").save( F"C:\\Users\\tim\\Videos\\test\\__{img_number}.jpg" )
+        if width is None: 
+            width=frame.shape[0]
 
         yield frame
 
-w = lambda o, data: o.buffer.write(data) if hasattr(o, "buffer") else o.write(data)
+def get_output_frames():
+    for gpu_batch in batch(get_input_frames(), gpu_batch_size):
+        for mask in remove_many(gpu_batch):
+            yield mask
 
-img_number = 0
+output_file = 'C:\\Users\\tim\\Videos\\test\\output_file_name.mp4'
+input_file = 'C:\\Users\\tim\\Videos\\test\\2021-01-30 20-28-16.mp4'
 
-for gpu_batch in batch(get_frames(), gpu_batch_size):
-    for stream in remove_many(gpu_batch):
-        fn = F"C:\\Users\\tim\\Videos\\test\\{img_number}.out.png"  
-        img_number = img_number + 1
-        with open(fn, "wb") as output:
-            w(
-                output,
-                stream[0]
-            )
-           
+command = ['FFMPEG',
+        '-y',
+        '-f', 'rawvideo',
+        '-vcodec','rawvideo',
+        '-s', F"320,568",
+        '-pix_fmt', 'bgr24',
+        '-r', "24", 
+        '-i', '-',  
+        '-an',
+        '-vcodec', 'mpeg4',   
+        '-b:v', '2000k',    
+        output_file ]
+
+proc = sp.Popen(command, stdin=sp.PIPE)
+video = None
 
 
+for image in get_output_frames():
+
+    if video is None:
+        dimension = '{}x{}'.format(image.shape[0], image.shape[1])
+
+    proc.stdin.write(image.tostring())
 
 
-
- 
+proc.stdin.close()
+proc.wait()
