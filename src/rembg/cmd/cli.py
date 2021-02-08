@@ -175,7 +175,7 @@ def main():
                     '-an',
                     '-vcodec', 'mpeg4',   
                     '-b:v', '2000k',    
-                    args.output ]
+                    args.greenscreen.replace(".matte.mp4", ".mp4")  ]
                 proc = sp.Popen(command, stdin=sp.PIPE)
 
             proc.stdin.write(image.tostring())
