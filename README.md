@@ -1,172 +1,95 @@
-# Rembg
+# Rembg Virtual Greenscreen Edition (Dr. Tim Scarfe)
 
-[![Downloads](https://pepy.tech/badge/rembg)](https://pepy.tech/project/rembg)
-[![Downloads](https://pepy.tech/badge/rembg/month)](https://pepy.tech/project/rembg/month)
-[![Downloads](https://pepy.tech/badge/rembg/week)](https://pepy.tech/project/rembg/week)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://img.shields.io/badge/License-MIT-blue.svg)
 
-Rembg is a tool to remove images background. That is it.
+Rembg Virtual Greenscreen Edition is a tool to create a green screen matte for videos
 
 <p style="display: flex;align-items: center;justify-content: center;">
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/car-1.jpg" width="100" />
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/car-1.out.png" width="100" />
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/car-2.jpg" width="100" />
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/car-2.out.png" width="100" />
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/car-3.jpg" width="100" />
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/car-3.out.png" width="100" />
+  <img src="https://raw.githubusercontent.com/ecsplendid/rembg/master/examples/greenscreen.png" width="100%" />
 </p>
 
-<p style="display: flex;align-items: center;justify-content: center;">
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/animal-1.jpg" width="100" />
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/animal-1.out.png" width="100" />
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/animal-2.jpg" width="100" />
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/animal-2.out.png" width="100" />
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/animal-3.jpg" width="100" />
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/animal-3.out.png" width="100" />
-</p>
 
-<p style="display: flex;align-items: center;justify-content: center;">
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/girl-1.jpg" width="100" />
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/girl-1.out.png" width="100" />
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/girl-2.jpg" width="100" />
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/girl-2.out.png" width="100" />
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/girl-3.jpg" width="100" />
-  <img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/girl-3.out.png" width="100" />
-</p>
+## Video Virtual Green Screen Edition
 
-### Tim Scarfe - Video Virtual Green Screen Version
 
-I have created a PowerShell script which will (on Windows)
+[WATCH THE VIDEO DEMONSTRATION/Explainer HERE](https://share.descript.com/view/YTo9QAZU5EC)
 
-* Take any MP4 video file and convert it to a transparent low quality MOV which you can use as an alpha matte in Premiere
+
+* Take any  video file and convert it to an alpha matte to apply for a virtual green screen
 * It runs end-to-end non-interactively 
-* It will detect failure cases where the size of the png is zero and fix them
-* It will divide the work into batches and run them in parallel to maximise the memory and compute utilisation on your machine
 * You need ffmpeg installed and on your path
-* You need to make environmental variables for the location of rembg and anaconda i.e. $env:rembg = "C:\Users\tim\git\rembg" and $env:anaconda = "C:\Users\tim\anaconda3"
-* The powershell script is ./remove-bg.ps1 
+* There is also a powershell script `./remove-bg.ps1` which will do the job in a manual way i.e. first create frames, then run the `rembg -p ...` command and then run ``ffmpeg`` to create the matte movie. This was my first approach to solve this problem but then I migrated onto just making a new version of rembg.  
 
 
-### Requirements
 
-* python 3.8 or newer
 
-### Installation
+Usage;
 
-Install it from pypi
-
-```bash
-pip install rembg
 ```
+python -m src.rembg.cmd.cli -g "video.mp4"
+```
+
+The command above will produce a `video.matte.mp4` in the same folder
+
+
+## Architecture / performance log
+
+
+The first thing I changed in the architecture was as follows; 
+
+
+
+<p style="display: flex;align-items: center;justify-content: center;">
+  <img src="https://raw.githubusercontent.com/ecsplendid/rembg/master/examples/Architecture%20v1.png" width="65%" />
+</p>
+
+* Making the calls to the NN more "chunky" rather than chatty i.e. it's possible to send batches of around 25 images through the NN on a GPU with 11GB ram. I assumed this would dramatically increase throughput, but actually it didn't. I changed the architecture to be more pipeline oriented and using lazy evaluation (generators). 
+* I also increased throughput by first downsizing all images to as near as possible to the receptive field of the NN i.e. 320^2^3, this will speed up all the quadratic processing steps before and not lose any performance
+* I also changed the NN model to be the human segmentation variant, which is significantly better for green screen purposes
+
+The next big problem which I assumed was the root of all the issues was the disk IO, having to write all the frames to the disk. I solved this by streaming frames in from MoviePy and streaming them into FFMPEG using STDIN.
+
+<p style="display: flex;align-items: center;justify-content: center;">
+  <img src="https://raw.githubusercontent.com/ecsplendid/rembg/master/examples/Architecture%20v2.png" width="65%" />
+</p>
+
+* This is a significantly more elegant architecture
+* No writing of frames to HDD, although it means you need to start again from scratch if you terminate prematurely
+* Because the small input frames are no longer being compressed, the results are noticably better
+* I also removed the cutout stage and just return the mask/matte
+* I remove a bunch of the expensive pre-processing as it didn't make any difference i.e. ther BGR, normalisation (just use scaling)
+* There is still 2 expensive resize steps in there i.e. to square aspect to go into model and back again on the other side. This is unavoidable but at least it's on a low res image (height=320).
+
+
+Much to my surprise though, even this architecture is getting poor throughput, about 15 frames per second end to end. This is disapointing. 
+
+This is a perf log of the code;
+
+<p style="display: flex;align-items: center;justify-content: center;">
+  <img src="https://raw.githubusercontent.com/ecsplendid/rembg/master/examples/perf.png" width="65%" />
+</p>
+
+Looking at this, there are no super obvious bottlenecks which stick out that we can do anything about, other than the obvious which is to use a smaller NN model. There are lots of expensive quadratic resize operations. We can probably improve some memory allocation and IO stuff. Please get in touch with me if you have ideas here.  
+
+## Important notes
+
+* Don't use VBR videos, it will run forever -- use Handbrake to convert them to CFR
+
 
 ### Usage as a cli
 
-Remove the background from a remote image
-```bash
-curl -s http://input.png | rembg > output.png
-```
-
-Remove the background from a local file
-```bash
-rembg -o path/to/output.png path/to/input.png
-```
 
 Remove the background from all images in a folder
 ```bash
 rembg -p path/to/inputs
 ```
 
-### Usage as a server
-
-Start the server
+Produce a matte from a video
 ```bash
-rembg-server
+rembg -g path/to/video
 ```
 
-Open your browser to
-```
-http://localhost:5000?url=http://image.png
-```
 
-Also you can send the file as a FormData (multipart/form-data):
-```
-<form action="http://localhost:5000" method="post" enctype="multipart/form-data">
-   <input type="file" name="file"/>
-   <input type="submit" value="upload"/>
-</form>
-```
 
-### Usage as a library
-
-#### Example 1: Read from stdin and write to stdout
-
-In `app.py`
-```python
-import sys
-from rembg.bg import remove
-
-sys.stdout.buffer.write(remove(sys.stdin.buffer.read()))
-```
-
-Then run
-```
-cat input.png | python app.py > out.png
-```
-    
-#### Example 2: Using PIL
-
-In `app.py`
-```python
-from rembg.bg import remove
-import numpy as np
-import io
-from PIL import Image
-
-input_path = 'input.png'
-output_path = 'out.png'
-
-f = np.fromfile(input_path)
-result = remove(f)
-img = Image.open(io.BytesIO(result)).convert("RGBA")
-img.save(output_path)
-```
-
-Then run
-```
-python app.py
-```
-
-### Usage as a docker
-
-Just run
-
-```
-curl -s http://input.png | docker run -i -v ~/.u2net:/root/.u2net danielgatis/rembg:latest > output.png
-```
-
-### Advance usage
-
-Sometimes it is possible to achieve better results by turning on alpha matting. Example:
-```bash
-curl -s http://input.png | rembg -a -ae 15 > output.png
-```
-
-<table>
-    <thead>
-        <tr>
-            <td>Original</td>
-            <td>Without alpha matting</td>
-            <td>With alpha matting (-a -ae 15)</td>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td><img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/food-1.jpg"/></td>
-            <td><img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/food-1.out.jpg"/></td>
-            <td><img src="https://raw.githubusercontent.com/danielgatis/rembg/master/examples/food-1.out.alpha.jpg"/></td>
-        </tr>
-    </tbody>
-</table>
 
 ### References
 
@@ -176,11 +99,7 @@ curl -s http://input.png | rembg -a -ae 15 > output.png
 
 ### License
 
-Copyright (c) 2020-present [Daniel Gatis](https://github.com/danielgatis)
+ - Copyright (c) 2020-present [Daniel Gatis](https://github.com/danielgatis)
+ - Copyright (c) 2020-present [Dr. Tim Scarfe](https://github.com/ecsplendid)
 
 Licensed under [MIT License](./LICENSE.txt)
-
-### Buy me a coffee
-Liked some of my work? Buy me a coffee (or more likely a beer)
-
-<a href="https://www.buymeacoffee.com/danielgatis" target="_blank"><img src="https://bmc-cdn.nyc3.digitaloceanspaces.com/BMC-button-images/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: auto !important;width: auto !important;"></a>
