@@ -28,7 +28,7 @@ def worker(return_dict, batch_number, frame_batch, gpu_batchsize, cpu_batchsize)
             frame_minibatch, 
             model_name="u2net_human_seg",
             compression = False,
-            use_nnserver = False):
+            use_nnserver = True):
 
             lst[frame_number] = frame
             frame_number = frame_number + 1

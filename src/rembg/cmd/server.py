@@ -31,14 +31,14 @@ def index():
 
         load_bytes = io.BytesIO(file_content)
         load_bytes.seek(0)
-        decompressed_array = np.load(load_bytes, allow_pickle=True)['arr_0']
+        decompressed_array = np.load(load_bytes, allow_pickle=True)
 
         masks = nn_forwardpass(decompressed_array, net)
 
         print( F"{datetime.datetime.now()}: sent {masks.shape[0]} images" )
 
         stream = io.BytesIO()  
-        np.savez_compressed(stream, masks)
+        np.save(stream, masks)
         stream.seek(0) 
 
         return send_file(stream,
@@ -70,7 +70,7 @@ def main():
 
     args = ap.parse_args()
 
-    serve(app, host=args.addr, port=args.port)
+    serve(app, host=args.addr, port=args.port, threads=4)
 
 
 if __name__ == "__main__":

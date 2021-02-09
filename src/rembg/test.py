@@ -21,14 +21,6 @@ import subprocess as sp
 
 if __name__ == '__main__':
     parallel_greenscreen("C:\\Users\\tim\\Videos\\test\\2021-01-31 14-05-52.mp4", 
-                worker_nodes = 3, 
+                worker_nodes = 10, 
                 cpu_batchsize = 100, 
                 gpu_batchsize = 5)
-
-
-    
-
-
-            
-        
-

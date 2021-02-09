@@ -1,9 +1,10 @@
 import errno
 from io import BytesIO
+import io
 import os
 import sys
 import urllib.request
-
+import time
 import numpy as np
 import requests
 import torch
@@ -168,18 +169,23 @@ def predict(net, items, use_nnserver=False):
 # takes a stream of compressed (b,3,320,320)
 def nn_forwardpass_http(bytes):
 
-    files = {'file': bytes.getvalue()}
-    response = requests.post("http://LOCALHOST:5000", files=files)
-    load_bytes = BytesIO(response.content)
+    stream = io.BytesIO()
+    np.save(stream, bytes )
+    stream.seek(0)
+
+    files = {'file': stream.getvalue()}
+    response = requests.post("http://127.0.0.1:5000", files=files)
+
+    load_bytes = io.BytesIO(response.content)
     load_bytes.seek(0)
 
-    return  np.load(load_bytes, allow_pickle=True)['arr_0']
+    arr = np.load(load_bytes, allow_pickle=True)
+   
+    return  arr
 
-import time
 
 def nn_forwardpass(master_images, net):
 
-    t0 = time.time()
    
     inputs_test = None
     batch = master_images.shape[0]
@@ -199,10 +205,6 @@ def nn_forwardpass(master_images, net):
         predict_np = predict.cpu().detach().numpy()
 
         del d1, pred, predict, inputs_test
-
-        t1 = time.time()
-
-        print( t1-t0 )
 
         return predict_np
 
