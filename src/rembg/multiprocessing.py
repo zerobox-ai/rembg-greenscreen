@@ -5,26 +5,27 @@ import ffmpeg
 import cv2
 import subprocess as sp
 from .bg import remove_many
-from .cmd.cli import batch
+from more_itertools import take, chunked
 
-def worker(return_dict, batch_number, frame_batch):
+
+def worker(return_dict, batch_number, frame_batch, gpu_batchsize, cpu_batchsize):
     """worker function for processing the batch of frames"""
 
     # here we send batches that our GPU can handle, let's say 5 at a time
 
-    lst = [None] * 100
+    lst = [None] * cpu_batchsize
     frame_number = 0
-    # note that 3 means in this batch, there are another 4 guys like this
-    # so 4*3=12 images on gpu and loading model 4 times
-    #frame_batch = [F,F,F...,100]
-    for frame_minibatch in batch(frame_batch, 2):
-        for frame in remove_many(frame_minibatch, model_name="u2netp"):
+
+    # there are cpu_batchsize items and gpu_batchsize
+    for frame_minibatch in chunked(frame_batch, gpu_batchsize):
+        
+        for frame in remove_many(frame_minibatch, model_name="u2net_human_seg"):
             lst[frame_number] = frame
             frame_number = frame_number + 1
        
     return_dict[batch_number] = lst
 
-def get_input_frames():
+def get_input_frames(filepath):
     
     clip = mpy.VideoFileClip(filepath)
     clip_resized = clip.resize(height=320)
@@ -36,52 +37,65 @@ def get_input_frames():
 command = None
 proc = None
 
-def get_output_frames():
+def get_output_frames(filepath,
+        worker_nodes, 
+        cpu_batchsize, 
+        gpu_batchsize):
 
-    #manager = multiprocessing.Manager()
+    manager = multiprocessing.Manager()
     
-    #0-2000, 2000-4000, 4000-6000, 
-    #1,.....,2........,.3..........
-    for frame_batch in batch(get_input_frames(), 50):
+    batch_number = 0
+    return_dict = manager.dict()
+    jobs = []
 
-        batch_number = 1
-        #return_dict = manager.dict()
-        #jobs = []
+    wn = 0
 
-        print("big batch")
-        input("big batch")
+    for mini_batch in chunked(get_input_frames(filepath), cpu_batchsize):
 
-        for mini_batch in batch(frame_batch, 25):
-            # we will have 4 batches here
+        p = multiprocessing.Process(target=worker, args=(
+            return_dict, batch_number, 
+            mini_batch, gpu_batchsize, 
+            cpu_batchsize))
 
-            #0-500, 500-1000,1000-1500, 1500-2000
-            #1......2..........3.........4
+        jobs.append(p)
 
-            #p = multiprocessing.Process(target=worker, args=(return_dict, batch_number, mini_batch))
-            #jobs.append(p)
-            #p.start()
+        p.start()
+        print("job started")
 
-            batch_number = batch_number + 1
+        wn = wn + 1
+        batch_number = batch_number + 1
 
-            print(batch_number)
+        if wn >= worker_nodes:
+            # now sync and wait for jobs to finish
 
-        print("out of loop")
-        input("test")
+            print("blocking on workers stopping")
+            for proc in jobs:
+                proc.join()
 
-        # now sync and wait for jobs to finish
-        #for proc in jobs:
-        #    proc.join()
+            wn = 0
+            jobs = []
+            
+            for bn in range(0,worker_nodes):
+                for mask in return_dict[bn]:
 
-        # now reintegrate
-        #for b in range(1,batch_number):
-        #    for mask in frame_batch[b]:
-        #        yield mask
+                    # we use a fixed size data structure, gap at end
+                    if mask is not None:
+                        yield mask
 
-if __name__ == "__main__":
+            return_dict = manager.dict()
+            batch_number = 0
 
-    filepath = "C:\\Users\\tim\\Videos\\AWS\\bothsofian\\Sofian\\sofian-1608288312764_CFR.mp4"
 
-    for image in get_output_frames():
+def parallel_greenscreen(filepath : str, worker_nodes = 3, cpu_batchsize = 2500, gpu_batchsize = 5):
+
+    command = None
+    proc = None
+
+    for image in get_output_frames(
+        filepath,
+        worker_nodes, 
+        cpu_batchsize, 
+        gpu_batchsize):
 
         if command is None: 
             command = ['FFMPEG',

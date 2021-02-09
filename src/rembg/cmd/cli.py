@@ -12,11 +12,12 @@ import numpy as np
 import ffmpeg
 import cv2
 import subprocess as sp
+from ..multiprocessing import parallel_greenscreen
 from ..bg import remove, remove_many
 
 def batch(iterable, batch_size):
-            while batch := list(islice(iterable, batch_size)):
-                yield batch
+    while batch := list(islice(iterable, batch_size)):
+        yield batch
 
 def main():
     ap = argparse.ArgumentParser()
@@ -87,9 +88,31 @@ def main():
     )
 
     ap.add_argument(
-        "-b",
+        "-pg",
+        "--parallelgreenscreen",
+        type=str,
+        help="Path of a video for parallel green screen.",
+    )
+
+    ap.add_argument(
+        "-cb",
+        "--cpubatchsize",
+        default=2500,
+        type=int,
+        help="CPU batchsize"
+    )
+    ap.add_argument(
+        "-wn",
+        "--workernodes",
+        default=2500,
+        type=int,
+        help="GPU batchsize"
+    )
+
+    ap.add_argument(
+        "-gb",
         "--batchsize",
-        default=15,
+        default=5,
         type=int,
         help="GPU batchsize"
     )
@@ -142,6 +165,13 @@ def main():
                         output,
                         stream[0]
                     )
+
+    elif args.parallelgreenscreen:
+
+        parallel_greenscreen(args.parallelgreenscreen, 
+            worker_nodes = args.workernodes, 
+            cpu_batchsize = args.cpubatchsize, 
+            gpu_batchsize = args.batchsize)
 
     elif args.greenscreen:
 
