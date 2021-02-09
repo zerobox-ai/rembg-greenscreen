@@ -28,6 +28,15 @@ Usage;
 python -m src.rembg.cmd.cli -g "video.mp4"
 ```
 
+Experimental parallel green screen version;
+
+```
+python -m src.rembg.cmd.cli --parallelgreenscreen "video.mp4" --workernodes 3 --gpubatchsize 5 --cpubatchsize 2500
+```
+
+Be careful with the default parameters, my 11GB GPU is already pretty much maxed with 3 instances of the NN with 5 image mini batches in forward pass. If you max your RAM (cpu * worker nodes) you will start swapping to disk and that will kill you.  
+
+
 The command above will produce a `video.matte.mp4` in the same folder
 
 

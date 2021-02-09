@@ -104,14 +104,14 @@ def main():
     ap.add_argument(
         "-wn",
         "--workernodes",
-        default=2500,
+        default=3,
         type=int,
         help="GPU batchsize"
     )
 
     ap.add_argument(
         "-gb",
-        "--batchsize",
+        "--gpubatchsize",
         default=5,
         type=int,
         help="GPU batchsize"
