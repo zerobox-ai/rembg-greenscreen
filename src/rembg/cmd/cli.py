@@ -97,7 +97,7 @@ def main():
     ap.add_argument(
         "-cb",
         "--cpubatchsize",
-        default=2000,
+        default=1000,
         type=int,
         help="CPU batchsize"
     )
@@ -112,7 +112,7 @@ def main():
     ap.add_argument(
         "-gb",
         "--gpubatchsize",
-        default=5,
+        default=2,
         type=int,
         help="GPU batchsize"
     )

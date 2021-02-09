@@ -6,7 +6,7 @@ from PIL import Image
 from pymatting.alpha.estimate_alpha_cf import estimate_alpha_cf
 from pymatting.foreground.estimate_foreground_ml import estimate_foreground_ml
 from pymatting.util.util import stack_images
-
+import sparse
 
 from .u2net import detect
 
@@ -117,14 +117,27 @@ def remove_many(
 ):
     model = get_model(model_name)
 
-    # these are also PIL images
-    masks = detect.predict(model, image_data )
 
-    for combo in zip( image_data, masks ):
+
+    for arr in image_data:
+        arr.seek(0)
+
+    decompressed_images = [np.load(compressed_array,allow_pickle=True)['arr_0'] for compressed_array in image_data]
+
+
+
+    # these are also PIL images
+    masks = detect.predict(model, decompressed_images )
+
+    for combo in zip( decompressed_images, masks ):
 
         mask = combo[1].resize( (combo[0].shape[1], combo[0].shape[0]), Image.LANCZOS)
 
         mask = (np.array( mask ) ).astype(np.uint8)
-      
-        yield mask
+
+        # compress it in transit (trade CPU which we have plenty of for RAM which is in short supply)
+        compressed_array = io.BytesIO()    
+        np.savez_compressed(compressed_array, mask)
+
+        yield compressed_array
 

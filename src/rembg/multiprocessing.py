@@ -1,3 +1,4 @@
+import io
 import multiprocessing
 import moviepy.editor as mpy
 import numpy as np
@@ -32,7 +33,11 @@ def get_input_frames(filepath):
     img_number = 0
 
     for frame in clip_resized.iter_frames(dtype="float"):
-        yield frame
+
+        compressed_array = io.BytesIO()    
+        np.savez_compressed(compressed_array, frame)
+
+        yield compressed_array
 
 command = None
 proc = None
@@ -97,12 +102,17 @@ def parallel_greenscreen(filepath : str, worker_nodes = 3, cpu_batchsize = 2500,
         gpu_batchsize):
 
         for frame in gen:
+
+            # decompress the mask frame
+            frame.seek(0)    # seek back to the beginning of the file-like object
+            decompressed_array = np.load(frame)['arr_0']
+
             if command is None: 
                 command = ['FFMPEG',
                     '-y',
                     '-f', 'rawvideo',
                     '-vcodec','rawvideo',
-                    '-s', F"{frame.shape[1]},320",
+                    '-s', F"{decompressed_array.shape[1]},320",
                     '-pix_fmt', 'gray',
                     '-r', "30", # for now I am hardcoding it, I can always resize the clip in premiere anyway 
                     '-i', '-',  
@@ -112,7 +122,7 @@ def parallel_greenscreen(filepath : str, worker_nodes = 3, cpu_batchsize = 2500,
                     filepath.replace(".mp4", ".matte.mp4")  ]
                 proc = sp.Popen(command, stdin=sp.PIPE)
 
-            proc.stdin.write(frame.tostring())
+            proc.stdin.write(decompressed_array.tostring())
 
     proc.stdin.close()
     proc.wait()  
