@@ -104,7 +104,7 @@ def main():
     ap.add_argument(
         "-wn",
         "--workernodes",
-        default=3,
+        default=5,
         type=int,
         help="GPU batchsize"
     )
@@ -184,7 +184,7 @@ def main():
                 yield frame
 
         def get_output_frames():
-            for gpu_batch in batch(get_input_frames(), args.batchsize):
+            for gpu_batch in batch(get_input_frames(), args.gpubatchsize):
                 for mask in remove_many(gpu_batch):
                     yield mask
 
