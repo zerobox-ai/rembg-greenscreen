@@ -103,7 +103,7 @@ def parallel_greenscreen(filepath : str, worker_nodes = 3, cpu_batchsize = 2500,
                 '-f', 'rawvideo',
                 '-vcodec','rawvideo',
                 '-s', F"{image.shape[1]},320",
-                '-pix_fmt', 'bgr24',
+                '-pix_fmt', 'gray',
                 '-r', "30", # for now I am hardcoding it, I can always resize the clip in premiere anyway 
                 '-i', '-',  
                 '-an',

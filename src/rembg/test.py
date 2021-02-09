@@ -7,6 +7,8 @@ from PIL import Image
 import filetype
 from skimage import transform
 from tqdm import tqdm
+
+from .multiprocessing import parallel_greenscreen
 from .u2net.detect import predict
 from .bg import remove, remove_many
 from itertools import islice, chain
@@ -17,17 +19,8 @@ import ffmpeg
 import cv2
 import subprocess as sp
 
-gpu_batch_size = 10
-
-
-clip = mpy.VideoFileClip("C:\\Users\\tim\\Videos\\test\\2021-01-30 20-28-16.mp4")
-clip_resized = clip.resize(height=320)
-
-x=0
-
-for frame in tqdm(clip_resized.iter_frames(dtype="uint8")):
-    x=x+1
-
-
-print(x)
-
+if __name__ == '__main__':
+    parallel_greenscreen("C:\\Users\\tim\\Videos\\test\\tim_scarfe-1608643016102.mp4", 
+                worker_nodes = 3, 
+                cpu_batchsize = 100, 
+                gpu_batchsize = 5)
