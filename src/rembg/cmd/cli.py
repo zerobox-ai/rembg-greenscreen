@@ -9,7 +9,6 @@ import filetype
 from tqdm import tqdm
 import moviepy.editor as mpy
 import numpy as np
-import ffmpeg
 import cv2
 import subprocess as sp
 from ..multiprocessing import parallel_greenscreen
@@ -97,14 +96,14 @@ def main():
     ap.add_argument(
         "-cb",
         "--cpubatchsize",
-        default=1000,
+        default=400,
         type=int,
         help="CPU batchsize"
     )
     ap.add_argument(
         "-wn",
         "--workernodes",
-        default=5,
+        default=20,
         type=int,
         help="GPU batchsize"
     )
@@ -112,7 +111,7 @@ def main():
     ap.add_argument(
         "-gb",
         "--gpubatchsize",
-        default=2,
+        default=25,
         type=int,
         help="GPU batchsize"
     )

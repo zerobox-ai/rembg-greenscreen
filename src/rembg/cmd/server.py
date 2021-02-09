@@ -1,15 +1,18 @@
 import argparse
 from io import BytesIO
+import io
 from urllib.parse import unquote_plus
 from urllib.request import urlopen
-
 from flask import Flask, request, send_file
+import numpy as np
 from waitress import serve
-
-from ..bg import remove
+from ..u2net.detect import nn_forwardpass
+from ..bg import get_model, remove_many
+import datetime
 
 app = Flask(__name__)
 
+net = get_model("u2net_human_seg")
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -21,40 +24,25 @@ def index():
 
         file_content = request.files["file"].read()
 
-    if request.method == "GET":
-        url = request.args.get("url", type=str)
-        if url is None:
-            return {"error": "missing query param 'url'"}, 400
-
-        file_content = urlopen(unquote_plus(url)).read()
-
     if file_content == "":
         return {"error": "File content is empty"}, 400
 
-    alpha_matting = "a" in request.values
-    af = request.values.get("af", type=int, default=240)
-    ab = request.values.get("ab", type=int, default=10)
-    ae = request.values.get("ae", type=int, default=10)
-    az = request.values.get("az", type=int, default=1000)
-
-    model = request.args.get("model", type=str, default="u2net")
-    if model not in ("u2net", "u2netp"):
-        return {"error": "invalid query param 'model'"}, 400
-
     try:
-        return send_file(
-            BytesIO(
-                remove(
-                    file_content,
-                    model_name=model,
-                    alpha_matting=alpha_matting,
-                    alpha_matting_foreground_threshold=af,
-                    alpha_matting_background_threshold=ab,
-                    alpha_matting_erode_structure_size=ae,
-                    alpha_matting_base_size=az,
-                )
-            ),
-            mimetype="image/png",
+
+        load_bytes = io.BytesIO(file_content)
+        load_bytes.seek(0)
+        decompressed_array = np.load(load_bytes, allow_pickle=True)['arr_0']
+
+        masks = nn_forwardpass(decompressed_array, net)
+
+        print( F"{datetime.datetime.now()}: sent {masks.shape[0]} images" )
+
+        stream = io.BytesIO()  
+        np.savez_compressed(stream, masks)
+        stream.seek(0) 
+
+        return send_file(stream,
+            mimetype="application/octet-stream",
         )
     except Exception as e:
         app.logger.exception(e, exc_info=True)
@@ -81,6 +69,7 @@ def main():
     )
 
     args = ap.parse_args()
+
     serve(app, host=args.addr, port=args.port)
 
 

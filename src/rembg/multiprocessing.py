@@ -1,13 +1,17 @@
 import io
 import multiprocessing
+from PIL import Image
 import moviepy.editor as mpy
 import numpy as np
-import ffmpeg
-import cv2
 import subprocess as sp
 from .bg import remove_many
-from more_itertools import take, chunked
-import math
+from more_itertools import chunked
+from tqdm import tqdm
+import ffmpeg
+from skimage import transform
+from resizeimage import resizeimage
+
+compression = False
 
 def worker(return_dict, batch_number, frame_batch, gpu_batchsize, cpu_batchsize):
     """worker function for processing the batch of frames"""
@@ -20,24 +24,59 @@ def worker(return_dict, batch_number, frame_batch, gpu_batchsize, cpu_batchsize)
     # there are cpu_batchsize items and gpu_batchsize
     for frame_minibatch in chunked(frame_batch, gpu_batchsize):
         
-        for frame in remove_many(frame_minibatch, model_name="u2net_human_seg"):
+        for frame in remove_many(
+            frame_minibatch, 
+            model_name="u2net_human_seg",
+            compression = False,
+            use_nnserver = False):
+
             lst[frame_number] = frame
             frame_number = frame_number + 1
        
     return_dict[batch_number] = lst
 
+
+def get_frames(in_filename):
+
+    probe = ffmpeg.probe(in_filename)
+
+    video_stream = next((stream for stream in probe['streams'] 
+                        if stream['codec_type'] == 'video'), None)
+
+    width = int(video_stream['width'])
+    height = int(video_stream['height'])
+
+    # streaming frmo FFMPEG is about 3 times faster than
+    # moviepy, 50->150fps
+    process1 = (
+        ffmpeg
+        .input(in_filename)
+        .output('pipe:', format='rawvideo', pix_fmt='rgb24')
+        .run_async(pipe_stdout=True)
+    )
+
+    while True:
+        in_bytes = process1.stdout.read(width * height * 3)
+        if not in_bytes:
+            break
+    
+        yield (np
+            .frombuffer(in_bytes, np.uint8)
+            .reshape([width, height, 3]))
+
 def get_input_frames(filepath):
     
-    clip = mpy.VideoFileClip(filepath)
-    clip_resized = clip.resize(height=320)
-    img_number = 0
+    for frame in tqdm(get_frames(filepath)):
 
-    for frame in clip_resized.iter_frames(dtype="float"):
+        frame = Image.fromarray(frame, mode="RGB")
+        frame = np.array(resizeimage.resize_height(frame,320))
 
-        compressed_array = io.BytesIO()    
-        np.savez_compressed(compressed_array, frame)
-
-        yield compressed_array
+        if compression:
+            compressed_array = io.BytesIO()    
+            np.savez_compressed(compressed_array, frame)
+            yield compressed_array
+        else:
+            yield frame
 
 command = None
 proc = None
@@ -58,7 +97,6 @@ def get_output_frames(filepath,
 
     manager = multiprocessing.Manager()
     
-   # no_batches = math.ceil(cpu_batchsize/worker_nodes)
     previous_batch = None
 
     for worker_batch in chunked(get_input_frames(filepath), worker_nodes * cpu_batchsize):
@@ -90,7 +128,7 @@ def get_output_frames(filepath,
     # we will have one left over
     yield process_batch(previous_batch, worker_nodes)
 
-def parallel_greenscreen(filepath : str, worker_nodes = 3, cpu_batchsize = 2500, gpu_batchsize = 5):
+def parallel_greenscreen(filepath : str, worker_nodes, cpu_batchsize, gpu_batchsize):
 
     command = None
     proc = None
@@ -103,9 +141,12 @@ def parallel_greenscreen(filepath : str, worker_nodes = 3, cpu_batchsize = 2500,
 
         for frame in gen:
 
-            # decompress the mask frame
-            frame.seek(0)    # seek back to the beginning of the file-like object
-            decompressed_array = np.load(frame)['arr_0']
+            if compression:
+                # decompress the mask frame
+                frame.seek(0)    # seek back to the beginning of the file-like object
+                decompressed_array = np.load(frame)['arr_0']
+            else: 
+                decompressed_array = frame
 
             if command is None: 
                 command = ['FFMPEG',

@@ -4,6 +4,21 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        
+
+        {
+            "name": "client",
+            "type": "python",
+            "request": "launch",
+            "module": "src.rembg.cmd.client"
+        },
+
+        {
+            "name": "server",
+            "type": "python",
+            "request": "launch",
+            "module": "src.rembg.cmd.server"
+        },
 
         {
             "name": "test",

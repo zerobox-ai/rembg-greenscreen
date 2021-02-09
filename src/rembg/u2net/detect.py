@@ -1,4 +1,5 @@
 import errno
+from io import BytesIO
 import os
 import sys
 import urllib.request
@@ -17,6 +18,9 @@ from tqdm import tqdm
 from sklearn.preprocessing import normalize
 from . import data_loader, u2net
 from skimage.transform import rescale, resize, downscale_local_mean
+from timeit import timeit
+from funcy import debug
+
 
 def download_file_from_google_drive(id, fname, destination):
     head, tail = os.path.split(destination)
@@ -132,42 +136,75 @@ def norm_pred(d):
 
     return dn
 
-def predict(net, items):
+from functools import wraps
+from time import time
 
-    batch = len(items)
+
+def predict(net, items, use_nnserver=False):
 
     resized = [ transform.resize(image,(320,320)) for image in items ] # expensive
-    np_arrays = [ np.array(image).astype(np.float) for image in resized]
-    master_images = np.array(np_arrays)
+    np_arrays = [ np.array(image) for image in resized]
+    master_images = np.array(np_arrays).astype(np.float)
     #RGB->BGR
-    master_images = master_images[:,:,:,::-1]
+    #master_images = master_images[:,:,:,::-1]
 
     master_images = master_images / 255
 
-    
     # move color chanel to second
     master_images = np.moveaxis(master_images, 3, 1)
 
+    if not use_nnserver:
+        predict_np = nn_forwardpass(master_images, net)
+    else:
+        # running in an MPI context, we call a shared NN server
+        predict_np = nn_forwardpass_http(master_images)
+
+    imgs = [ Image.fromarray( (predict_np[i, :, :] * 255).astype(np.uint8), mode="L") for i in range(predict_np.shape[0]) ]
+
+    del predict_np
+
+    return imgs
+
+# takes a stream of compressed (b,3,320,320)
+def nn_forwardpass_http(bytes):
+
+    files = {'file': bytes.getvalue()}
+    response = requests.post("http://LOCALHOST:5000", files=files)
+    load_bytes = BytesIO(response.content)
+    load_bytes.seek(0)
+
+    return  np.load(load_bytes, allow_pickle=True)['arr_0']
+
+import time
+
+def nn_forwardpass(master_images, net):
+
+    t0 = time.time()
+   
+    inputs_test = None
+    batch = master_images.shape[0]
+
     with torch.no_grad():
 
-        if torch.cuda.is_available():
-            inputs_test = torch.cuda.FloatTensor(
-               master_images 
-            ).cuda().float()
+        inputs_test = torch.FloatTensor(
+            master_images 
+        ).cuda().float()
 
-        d1, d2, d3, d4, d5, d6, d7 = net(inputs_test)
+        d1, _, _, _, _, _, _ = net(inputs_test)
 
         # d1 == out torch.Size([batch, 1, 320, 320])
         pred = d1[:, 0, :, :]
         predict = norm_pred(pred)
 
-       # predict = predict.squeeze()
         predict_np = predict.cpu().detach().numpy()
 
-        imgs = [ Image.fromarray( (predict_np[i, :, :] * 255).astype(np.uint8), mode="L") for i in range(batch) ]
+        del d1, pred, predict, inputs_test
 
-        del d1, d2, d3, d4, d5, d6, d7, pred, predict, predict_np, inputs_test
+        t1 = time.time()
 
-        torch.cuda.empty_cache()
+        print( t1-t0 )
 
-        return imgs
+        return predict_np
+
+
+        
