@@ -68,7 +68,33 @@ This is a perf log of the code;
   <img src="https://raw.githubusercontent.com/ecsplendid/rembg/master/examples/perf.png" width="65%" />
 </p>
 
-Looking at this, there are no super obvious bottlenecks which stick out that we can do anything about, other than the obvious which is to use a smaller NN model. There are lots of expensive quadratic resize operations. We can probably improve some memory allocation and IO stuff. Please get in touch with me if you have ideas here.  
+Looking at this, there are no super obvious bottlenecks which stick out that we can do anything about, other than the obvious which is to use a smaller NN model. There are lots of expensive quadratic resize operations. We can probably improve some memory allocation and IO stuff. 
+
+
+<p style="display: flex;align-items: center;justify-content: center;">
+  <img src="https://raw.githubusercontent.com/ecsplendid/rembg/master/examples/multithreead.png" width="65%" />
+</p>
+
+I experimented with creating a distributed processing version with the `multiprocessing` library in python. I was really expecting this to give a big speedup, but, alas not so much. I certainly get good utilisation on the machine now (see image below). The thing which kills it is shifting and serialing all the uncompressed image data between the worker nodes. This can amount to 40GB or so for a single batch. 
+
+<p style="display: flex;align-items: center;justify-content: center;">
+  <img src="https://raw.githubusercontent.com/ecsplendid/rembg/master/examples/multiprocess.png" width="65%" />
+</p>
+
+So the net result is we go from about 10fps->26 which is 2.6x improvement. At least we are nearly at real-time for a 30 fps video! 
+
+Please get in touch with me if you have ideas here.  
+
+Some ideas now: 
+
+* Get the worker nodes to stream in from the same video file independently, to save sending all the uncompressed video data over IPC (at least in one direction)
+* Even though the mask is mono, I am currently padding it to three channels (only way I could figure out how to get FFMPEG to write it). I could do this on the main thread and not send it over IPC, this would cut the data by a third. 
+* Get the workers to send the mask over IPC back to the main thread as a high quality JPG, this would probably cut the size down by 20x at least but lose tiny bit of quality and compute time
+* Carefully profile the actual masking code again and make some fine tuning, especially on the object allocation stuff
+
+This is pretty much at the point where I am happy-ish with it i.e. I can leave a lot of videos converting overnight and have confidence they will be ready in the morning. 
+
+ [My Whimsical notes](https://whimsical.com/ffmpeg-virtial-greenscreen-tS2T9uthKdCWhxvBAFUcy) are here
 
 ## Important notes
 
