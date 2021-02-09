@@ -97,7 +97,7 @@ def main():
     ap.add_argument(
         "-cb",
         "--cpubatchsize",
-        default=2500,
+        default=2000,
         type=int,
         help="CPU batchsize"
     )

@@ -92,6 +92,18 @@ I experimented with creating a distributed processing version with the `multipro
 
 So the net result is we go from about 10fps->26 which is 2.6x improvement. At least we are nearly at real-time for a 30 fps video! 
 
+
+<p style="display: flex;align-items: center;justify-content: center;">
+  <img src="https://raw.githubusercontent.com/ecsplendid/rembg/master/examples/multiproc_enhanced.png" width="65%" />
+</p>
+
+I enhanced the multiprocessing architecture a bit:
+
+- To also stream to FFMPEG in parallel while waiting for frames to process. 
+- I now write and pass back a mono image which cuts the data IPC by 1/3*1/2
+- Cleaned up the batching code to make bugs less likely and fixed a bug where the last batch didnt get processed
+
+
 Please get in touch with me if you have ideas here.  
 
 Some ideas now: 
