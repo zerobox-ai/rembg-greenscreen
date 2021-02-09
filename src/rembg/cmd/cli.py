@@ -171,7 +171,7 @@ def main():
         parallel_greenscreen(args.parallelgreenscreen, 
             worker_nodes = args.workernodes, 
             cpu_batchsize = args.cpubatchsize, 
-            gpu_batchsize = args.batchsize)
+            gpu_batchsize = args.gpubatchsize)
 
     elif args.greenscreen:
 
