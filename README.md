@@ -103,8 +103,16 @@ I enhanced the multiprocessing architecture a bit:
 - I now write and pass back a mono image which cuts the data IPC by 1/3*1/2
 - Cleaned up the batching code to make bugs less likely and fixed a bug where the last batch didnt get processed
 
+<p style="display: flex;align-items: center;justify-content: center;">
+  <img src="https://raw.githubusercontent.com/ecsplendid/rembg/master/examples/Arch5.png" width="65%" />
+</p>
 
-Please get in touch with me if you have ideas here.  
+- Made an NN server in a separate process using shared memory
+- This is making it super clear what the bottleneck is for me i.e. GPU memory. It takes 0.7 seconds for me to batch 25 images, and 25 is the limit before I run out of memory on 11.3gb card. I think some very high throughput might be possible with this archiecture if you have more GPU ram 
+- This architecture also leaves open the possibility to have external GPU servers although currently only shared memory on same machine is implemented
+
+
+Please get in touch with me if you have more ideas.  
 
 Some ideas now: 
 
