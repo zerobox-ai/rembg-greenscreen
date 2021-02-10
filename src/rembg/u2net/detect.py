@@ -1,6 +1,8 @@
 import errno
 from io import BytesIO
 import io
+import json
+from multiprocessing import Lock
 import os
 import sys
 import urllib.request
@@ -21,7 +23,8 @@ from . import data_loader, u2net
 from skimage.transform import rescale, resize, downscale_local_mean
 from timeit import timeit
 from funcy import debug
-
+from multiprocessing import shared_memory, Process, Lock
+from multiprocessing import cpu_count, current_process
 
 def download_file_from_google_drive(id, fname, destination):
     head, tail = os.path.split(destination)
@@ -144,12 +147,10 @@ from time import time
 def predict(net, items, use_nnserver=False):
 
     resized = [ transform.resize(image,(320,320)) for image in items ] # expensive
+    # note that transform.resize will return values on [0,1] )(float64)
+    # so it silently converts them from 255 uint8
     np_arrays = [ np.array(image) for image in resized]
-    master_images = np.array(np_arrays).astype(np.float)
-    #RGB->BGR
-    #master_images = master_images[:,:,:,::-1]
-
-    master_images = master_images / 255
+    master_images = np.array(np_arrays).astype(np.float32)
 
     # move color chanel to second
     master_images = np.moveaxis(master_images, 3, 1)
@@ -160,33 +161,40 @@ def predict(net, items, use_nnserver=False):
         # running in an MPI context, we call a shared NN server
         predict_np = nn_forwardpass_http(master_images)
 
-    imgs = [ Image.fromarray( (predict_np[i, :, :] * 255).astype(np.uint8), mode="L") for i in range(predict_np.shape[0]) ]
+    imgs = [ Image.fromarray( (predict_np[i, 0, :, :] * 255).astype(np.uint8), mode="L") for i in range(predict_np.shape[0]) ]
 
     del predict_np
 
     return imgs
 
+def get_sharedmemory_key():
+    return requests.get("http://127.0.0.1:5000/key/").content.decode("utf-8")
+
+
+lock = Lock()
+
 # takes a stream of compressed (b,3,320,320)
-def nn_forwardpass_http(bytes):
+def nn_forwardpass_http(master_images):
 
-    stream = io.BytesIO()
-    np.save(stream, bytes )
-    stream.seek(0)
+    key = get_sharedmemory_key()
 
-    files = {'file': stream.getvalue()}
-    response = requests.post("http://127.0.0.1:5000", files=files)
+    existing_shm = shared_memory.SharedMemory(name=key)
+    # we have 10 slots in our numpy 
 
-    load_bytes = io.BytesIO(response.content)
-    load_bytes.seek(0)
+    np_array = np.ndarray((master_images.shape[0],3,320,320), dtype=np.float32, buffer=existing_shm.buf)
+    result = np.ndarray((master_images.shape[0],3,320,320))
 
-    arr = np.load(load_bytes, allow_pickle=True)
-   
-    return  arr
+    lock.acquire()
+    # do everything in here exclusively over all processes
+    np_array[:] = master_images
+    requests.post("http://127.0.0.1:5000")
+    result[:] = np_array
+    lock.release()
 
+    return result
 
 def nn_forwardpass(master_images, net):
 
-   
     inputs_test = None
     batch = master_images.shape[0]
 

@@ -9,47 +9,47 @@ from waitress import serve
 from ..u2net.detect import nn_forwardpass
 from ..bg import get_model, remove_many
 import datetime
+import subprocess as sp
+from multiprocessing import shared_memory, Process, Lock
+from multiprocessing import cpu_count, current_process
+import time
+import json
+from ilock import ILock
 
 app = Flask(__name__)
 
 net = get_model("u2net_human_seg")
 
+lock = Lock()
+a = np.ones(shape=(25,3,320,320), dtype=np.float32)  
+shm = shared_memory.SharedMemory(create=True, size=a.nbytes)
+np_array = np.ndarray((25,3,320,320), dtype=np.float32, buffer=shm.buf)
+
+@app.route("/key/", methods=["GET"])
+def get_key():
+    return shm.name
+
+
 @app.route("/", methods=["GET", "POST"])
 def index():
-    file_content = ""
 
-    if request.method == "POST":
-        if "file" not in request.files:
-            return {"error": "missing post form param 'file'"}, 400
+    with ILock('gpu_processing_lock'):
 
-        file_content = request.files["file"].read()
-
-    if file_content == "":
-        return {"error": "File content is empty"}, 400
-
-    try:
-
-        load_bytes = io.BytesIO(file_content)
-        load_bytes.seek(0)
-        decompressed_array = np.load(load_bytes, allow_pickle=True)
-
-        masks = nn_forwardpass(decompressed_array, net)
-
+        existing_shm = shared_memory.SharedMemory(name=shm.name)
+        np_array = np.ndarray((25,3,320,320), dtype=np.float32, buffer=existing_shm.buf)
+        masks = nn_forwardpass(np_array, net)
         print( F"{datetime.datetime.now()}: sent {masks.shape[0]} images" )
+        # copy result back into shared memory
+        np_array[:,0,:,:] = masks
 
-        stream = io.BytesIO()  
-        np.save(stream, masks)
-        stream.seek(0) 
-
-        return send_file(stream,
-            mimetype="application/octet-stream",
-        )
-    except Exception as e:
-        app.logger.exception(e, exc_info=True)
-        return {"error": "oops, something went wrong!"}, 500
+        return 'Done'
 
 
 def main():
+
+
+    print("SHARED MEMORY CREATED: ", shm.name)
+
     ap = argparse.ArgumentParser()
 
     ap.add_argument(
@@ -74,4 +74,5 @@ def main():
 
 
 if __name__ == "__main__":
+    
     main()

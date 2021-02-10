@@ -60,9 +60,11 @@ def get_frames(in_filename):
         if not in_bytes:
             break
     
-        yield (np
+        frame = (np
             .frombuffer(in_bytes, np.uint8)
-            .reshape([width, height, 3]))
+            .reshape([height, width, 3]))
+
+        yield frame
 
 def get_input_frames(filepath):
     
@@ -153,7 +155,7 @@ def parallel_greenscreen(filepath : str, worker_nodes, cpu_batchsize, gpu_batchs
                     '-y',
                     '-f', 'rawvideo',
                     '-vcodec','rawvideo',
-                    '-s', F"{decompressed_array.shape[1]},320",
+                    '-s', F"{decompressed_array.shape[1]}x320",
                     '-pix_fmt', 'gray',
                     '-r', "30", # for now I am hardcoding it, I can always resize the clip in premiere anyway 
                     '-i', '-',  

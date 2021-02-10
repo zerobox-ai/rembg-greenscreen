@@ -22,7 +22,14 @@ def remove_many(
     compression = False,
     use_nnserver = False
 ):
-    model = get_model(model_name)
+
+    orig_height = image_data[0].shape[0]
+    orig_width = image_data[0].shape[1]
+
+    model = None
+
+    if not use_nnserver:
+        model = get_model(model_name)
 
     if compression:
         for arr in image_data:
@@ -35,12 +42,12 @@ def remove_many(
 
     for mask in masks:
 
-        mask = mask.resize( (mask.width, mask.height), Image.LANCZOS)
-
-        mask = (np.array( mask ) ).astype(np.uint8)
-
+        mask = mask.resize( (orig_width, orig_height), Image.LANCZOS)
+        mask = np.array( mask ).astype(np.uint8)
+        
         if compression:
-            # compress it in transit (trade CPU which we have plenty of for RAM which is in short supply)
+            # compress it in storage (trade CPU which we have plenty of for RAM which is in short supply)
+            # Probably usless unless you have running MANY workernodes
             compressed_array = io.BytesIO()    
             np.savez_compressed(compressed_array, mask)
             yield compressed_array

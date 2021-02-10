@@ -12,7 +12,7 @@ import numpy as np
 import cv2
 import subprocess as sp
 from ..multiprocessing import parallel_greenscreen
-from ..bg import remove, remove_many
+from ..bg import remove_many
 
 def batch(iterable, batch_size):
     while batch := list(islice(iterable, batch_size)):
@@ -197,8 +197,8 @@ def main():
                     '-y',
                     '-f', 'rawvideo',
                     '-vcodec','rawvideo',
-                    '-s', F"{image.shape[1]},320",
-                    '-pix_fmt', 'bgr24',
+                    '-s', F"560x320",
+                    '-pix_fmt', 'gray',
                     '-r', "30", # for now I am hardcoding it, I can always resize the clip in premiere anyway 
                     '-i', '-',  
                     '-an',

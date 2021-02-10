@@ -14,13 +14,10 @@ from .bg import remove_many
 from itertools import islice, chain
 import moviepy.editor as mpy
 import numpy as np
-import cv2
-import ffmpeg
-import cv2
-import subprocess as sp
+import time
 
 if __name__ == '__main__':
-    parallel_greenscreen("C:\\Users\\tim\\Videos\\test\\2021-01-31 14-05-52.mp4", 
+    parallel_greenscreen("C:\\Users\\tim\\Videos\\test\\2021-01-31 14-05-36.mp4", 
                 worker_nodes = 10, 
-                cpu_batchsize = 100, 
-                gpu_batchsize = 5)
+                cpu_batchsize = 50, 
+                gpu_batchsize = 25)
