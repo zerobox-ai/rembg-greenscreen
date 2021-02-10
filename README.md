@@ -112,7 +112,7 @@ I enhanced the multiprocessing architecture a bit:
 - This architecture also leaves open the possibility to have external GPU servers although currently only shared memory on same machine is implemented
 
 <p style="display: flex;align-items: center;justify-content: center;">
-  <img src="https://raw.githubusercontent.com/ecsplendid/rembg/master/examples/Arch6.png" width="65%" />
+  <img src="https://raw.githubusercontent.com/ecsplendid/rembg/master/examples/arch6.png" width="65%" />
 </p>
 
 Some thoughts on vnext above
