@@ -1,6 +1,5 @@
 import io
 import multiprocessing
-from PIL import Image
 import moviepy.editor as mpy
 import numpy as np
 import subprocess as sp
@@ -8,15 +7,13 @@ from .bg import remove_many
 from more_itertools import chunked
 from tqdm import tqdm
 import ffmpeg
-from skimage import transform
-from resizeimage import resizeimage
 
 compression = False
 
 def worker(return_dict, batch_number, frame_batch, gpu_batchsize, cpu_batchsize, use_nnserver):
     """worker function for processing the batch of frames"""
 
-    # here we send batches that our GPU can handle, let's say 5 at a time
+    # here we send batches that our GPU can handle, let's say 5-25 at a time
 
     lst = [None] * cpu_batchsize
     frame_number = 0
@@ -35,36 +32,6 @@ def worker(return_dict, batch_number, frame_batch, gpu_batchsize, cpu_batchsize,
        
     return_dict[batch_number] = lst
 
-
-def get_frames(in_filename):
-
-    probe = ffmpeg.probe(in_filename)
-
-    video_stream = next((stream for stream in probe['streams'] 
-                        if stream['codec_type'] == 'video'), None)
-
-    width = int(video_stream['width'])
-    height = int(video_stream['height'])
-
-    # streaming frmo FFMPEG is about 3 times faster than
-    # moviepy, 50->150fps
-    process1 = (
-        ffmpeg
-        .input(in_filename)
-        .output('pipe:', format='rawvideo', pix_fmt='rgb24')
-        .run_async(pipe_stdout=True)
-    )
-
-    while True:
-        in_bytes = process1.stdout.read(width * height * 3)
-        if not in_bytes:
-            break
-    
-        frame = (np
-            .frombuffer(in_bytes, np.uint8)
-            .reshape([height, width, 3]))
-
-        yield frame
 
 def get_input_frames(filepath):
     
@@ -147,7 +114,7 @@ def parallel_greenscreen(filepath : str, worker_nodes, cpu_batchsize, gpu_batchs
 
             if compression:
                 # decompress the mask frame
-                frame.seek(0)    # seek back to the beginning of the file-like object
+                frame.seek(0)   
                 decompressed_array = np.load(frame)['arr_0']
             else: 
                 decompressed_array = frame
@@ -170,4 +137,4 @@ def parallel_greenscreen(filepath : str, worker_nodes, cpu_batchsize, gpu_batchs
             proc.stdin.write(decompressed_array.tostring())
 
     proc.stdin.close()
-    proc.wait()  
+    proc.wait() 

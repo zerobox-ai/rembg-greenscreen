@@ -47,8 +47,6 @@ def index():
 
         return 'Done'
 
-
-
 ap = argparse.ArgumentParser()
 
 ap.add_argument(

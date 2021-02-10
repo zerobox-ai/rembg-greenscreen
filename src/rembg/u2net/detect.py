@@ -1,30 +1,16 @@
 import errno
-from io import BytesIO
-import io
-import json
 from multiprocessing import Lock
 import os
 import sys
-import urllib.request
-import time
 import numpy as np
 import requests
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision
 from hsh.library.hash import Hasher
 from PIL import Image
 from skimage import transform
-from torchvision import transforms
 from tqdm import tqdm
-from sklearn.preprocessing import normalize
-from . import data_loader, u2net
-from skimage.transform import rescale, resize, downscale_local_mean
-from timeit import timeit
-from funcy import debug
-from multiprocessing import shared_memory, Process, Lock
-from multiprocessing import cpu_count, current_process
+from . import u2net
+from multiprocessing import shared_memory, Lock
 
 def download_file_from_google_drive(id, fname, destination):
     head, tail = os.path.split(destination)
@@ -140,10 +126,6 @@ def norm_pred(d):
 
     return dn
 
-from functools import wraps
-from time import time
-
-
 def predict(net, items, use_nnserver=False):
 #
     resized = [ transform.resize(image,(320,320)) for image in items ] # expensive
@@ -152,6 +134,8 @@ def predict(net, items, use_nnserver=False):
     np_arrays = [ np.array(image) for image in resized]
     master_images = np.array(np_arrays).astype(np.float32)
 
+    #convert to BGR, as far as I can tell, this makes zero difference
+    #and for all I know, FFMPEG already gives us BGR..
     master_images = master_images[:,:,:,[2,1,0]]
 
     # move color chanel to second
@@ -217,6 +201,3 @@ def nn_forwardpass(master_images, net):
         del d1, pred, predict, inputs_test
 
         return predict_np
-
-
-        
