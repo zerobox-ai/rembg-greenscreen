@@ -96,14 +96,14 @@ def main():
     ap.add_argument(
         "-cb",
         "--cpubatchsize",
-        default=400,
+        default=200,
         type=int,
         help="CPU batchsize"
     )
     ap.add_argument(
         "-wn",
         "--workernodes",
-        default=20,
+        default=10,
         type=int,
         help="GPU batchsize"
     )
@@ -111,7 +111,7 @@ def main():
     ap.add_argument(
         "-gb",
         "--gpubatchsize",
-        default=25,
+        default=20,
         type=int,
         help="GPU batchsize"
     )

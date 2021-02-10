@@ -196,7 +196,6 @@ def nn_forwardpass_http(master_images):
 def nn_forwardpass(master_images, net):
 
     inputs_test = None
-    batch = master_images.shape[0]
 
     with torch.no_grad():
 
