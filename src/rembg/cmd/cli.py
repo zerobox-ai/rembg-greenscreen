@@ -11,6 +11,8 @@ import moviepy.editor as mpy
 import numpy as np
 import cv2
 import subprocess as sp
+
+from ..basic_greenscreen import basic_greenscreen
 from ..multiprocessing import parallel_greenscreen
 from ..bg import remove_many
 
@@ -103,7 +105,7 @@ def main():
     ap.add_argument(
         "-wn",
         "--workernodes",
-        default=10,
+        default=1,
         type=int,
         help="GPU batchsize"
     )
@@ -124,6 +126,14 @@ def main():
         type=str,
         help="Path to the output png image.",
     )
+
+    ap.add_argument(
+            "-nns",
+            "--nnserver",
+            default=False,
+            type=bool,
+            help="Use the NN HTTP server?",
+        )
 
     ap.add_argument(
         "input",
@@ -170,61 +180,14 @@ def main():
         parallel_greenscreen(args.parallelgreenscreen, 
             worker_nodes = args.workernodes, 
             cpu_batchsize = args.cpubatchsize, 
-            gpu_batchsize = args.gpubatchsize)
+            gpu_batchsize = args.gpubatchsize,
+            use_nnserver = args.nnserver)
 
     elif args.greenscreen:
-
-        def get_input_frames():
-            clip = mpy.VideoFileClip(args.greenscreen)
-            clip_resized = clip.resize(height=320)
-            img_number = 0
-
-            for frame in clip_resized.iter_frames(dtype="float"):
-                yield frame
-
-        def get_output_frames():
-            for gpu_batch in batch(get_input_frames(), args.gpubatchsize):
-                for mask in remove_many(gpu_batch):
-                    yield mask
-
-        command = None
-        proc = None
-
-        for image in get_output_frames():
-
-            if command is None: 
-                command = ['FFMPEG',
-                    '-y',
-                    '-f', 'rawvideo',
-                    '-vcodec','rawvideo',
-                    '-s', F"560x320",
-                    '-pix_fmt', 'gray',
-                    '-r', "30", # for now I am hardcoding it, I can always resize the clip in premiere anyway 
-                    '-i', '-',  
-                    '-an',
-                    '-vcodec', 'mpeg4',   
-                    '-b:v', '2000k',    
-                    args.greenscreen.replace(".mp4", ".matte.mp4")  ]
-                proc = sp.Popen(command, stdin=sp.PIPE)
-
-            proc.stdin.write(image.tostring())
-
-        proc.stdin.close()
-        proc.wait()
-
-    else: w(
-            args.output,
-            remove(
-                r(args.input),
-                model_name=args.model,
-                alpha_matting=args.alpha_matting,
-                alpha_matting_foreground_threshold=args.alpha_matting_foreground_threshold,
-                alpha_matting_background_threshold=args.alpha_matting_background_threshold,
-                alpha_matting_erode_structure_size=args.alpha_matting_erode_size,
-                alpha_matting_base_size=args.alpha_matting_base_size,
-            ),
-        )
-
+        basic_greenscreen(
+            args.greenscreen, 
+            args.gpubatchsize)
+      
 
 if __name__ == "__main__":
     main()

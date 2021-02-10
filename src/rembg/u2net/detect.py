@@ -145,23 +145,26 @@ from time import time
 
 
 def predict(net, items, use_nnserver=False):
-
+#
     resized = [ transform.resize(image,(320,320)) for image in items ] # expensive
     # note that transform.resize will return values on [0,1] )(float64)
     # so it silently converts them from 255 uint8
     np_arrays = [ np.array(image) for image in resized]
     master_images = np.array(np_arrays).astype(np.float32)
 
+    master_images = master_images[:,:,:,[2,1,0]]
+
     # move color chanel to second
     master_images = np.moveaxis(master_images, 3, 1)
 
     if not use_nnserver:
         predict_np = nn_forwardpass(master_images, net)
+        imgs = [ Image.fromarray( (predict_np[i, :, :] * 255).astype(np.uint8), mode="L") for i in range(predict_np.shape[0]) ]
     else:
         # running in an MPI context, we call a shared NN server
         predict_np = nn_forwardpass_http(master_images)
-
-    imgs = [ Image.fromarray( (predict_np[i, 0, :, :] * 255).astype(np.uint8), mode="L") for i in range(predict_np.shape[0]) ]
+        imgs = [ Image.fromarray( (predict_np[i, 0, :, :] * 255).astype(np.uint8), mode="L") for i in range(predict_np.shape[0]) ]
+       
 
     del predict_np
 

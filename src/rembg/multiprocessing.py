@@ -13,7 +13,7 @@ from resizeimage import resizeimage
 
 compression = False
 
-def worker(return_dict, batch_number, frame_batch, gpu_batchsize, cpu_batchsize):
+def worker(return_dict, batch_number, frame_batch, gpu_batchsize, cpu_batchsize, use_nnserver):
     """worker function for processing the batch of frames"""
 
     # here we send batches that our GPU can handle, let's say 5 at a time
@@ -28,7 +28,7 @@ def worker(return_dict, batch_number, frame_batch, gpu_batchsize, cpu_batchsize)
             frame_minibatch, 
             model_name="u2net_human_seg",
             compression = False,
-            use_nnserver = True):
+            use_nnserver = use_nnserver):
 
             lst[frame_number] = frame
             frame_number = frame_number + 1
@@ -68,11 +68,11 @@ def get_frames(in_filename):
 
 def get_input_frames(filepath):
     
-    for frame in tqdm(get_frames(filepath)):
+    clip = mpy.VideoFileClip(filepath)
+    clip_resized = clip.resize(height=320)
 
-        frame = Image.fromarray(frame, mode="RGB")
-        frame = np.array(resizeimage.resize_height(frame,320))
-
+    for frame in tqdm(clip_resized.iter_frames(dtype="uint8")):
+   
         if compression:
             compressed_array = io.BytesIO()    
             np.savez_compressed(compressed_array, frame)
@@ -95,7 +95,8 @@ def process_batch(batch, no_batches):
 def get_output_frames(filepath,
         worker_nodes, 
         cpu_batchsize, 
-        gpu_batchsize):
+        gpu_batchsize,
+        use_nnserver):
 
     manager = multiprocessing.Manager()
     
@@ -111,7 +112,7 @@ def get_output_frames(filepath,
             p = multiprocessing.Process(target=worker, args=(
                 return_dict, mini_batch[0], 
                 mini_batch[1], gpu_batchsize, 
-                cpu_batchsize))
+                cpu_batchsize, use_nnserver))
 
             jobs.append(p)
             p.start()
@@ -130,7 +131,7 @@ def get_output_frames(filepath,
     # we will have one left over
     yield process_batch(previous_batch, worker_nodes)
 
-def parallel_greenscreen(filepath : str, worker_nodes, cpu_batchsize, gpu_batchsize):
+def parallel_greenscreen(filepath : str, worker_nodes, cpu_batchsize, gpu_batchsize, use_nnserver):
 
     command = None
     proc = None
@@ -139,7 +140,8 @@ def parallel_greenscreen(filepath : str, worker_nodes, cpu_batchsize, gpu_batchs
         filepath,
         worker_nodes, 
         cpu_batchsize, 
-        gpu_batchsize):
+        gpu_batchsize,
+        use_nnserver):
 
         for frame in gen:
 
