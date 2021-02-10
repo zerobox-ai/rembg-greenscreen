@@ -10,27 +10,26 @@ with open("requirements.txt") as f:
     requireds = f.read().splitlines()
 
 setup(
-    name="rembg",
+    name="rembg-greenscreen",
     version="1.0.19",
-    description="Remove image background",
+    description="Rembg Virtual Green Screen",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/danielgatis/rembg",
-    author="Daniel Gatis",
-    author_email="danielgatis@gmail.com",
+    url="https://github.com/ecsplendid/rembg",
+    author="Daniel Gatis / Tim Scarfe",
+    author_email="tim@developer-x.com",
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3 :: Only",
     ],
-    keywords="remove, background, u2net",
+    keywords="remove, background, u2net, greenscreen, green screen",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     python_requires=">=3.8, <4",
     install_requires=requireds,
     entry_points={
         "console_scripts": [
-            "rembg=rembg.cmd.cli:main",
-            "rembg-server=rembg.cmd.server:main",
+            "rembg=rembg.cmd.cli:main"
         ],
     },
 )

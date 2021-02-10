@@ -3,6 +3,9 @@ param(
 [int]$retry_times=5, 
 [int]$highquality=1)
 
+# note that this has been superceded by the streaming version in this repo
+# I am leaving this here for people who want to do it the manual ->JPG->FFMPEG 
+# way using Daniel's original version
 
 # does the target even exist?
 if( -not(Test-Path $target) ){
