@@ -13,20 +13,18 @@ def get_input_frames(path):
     for frame in clip_resized.iter_frames(dtype="uint8"):
         yield frame
 
-def get_output_frames(gpubatchsize, path):
+def get_output_frames(gpubatchsize, path, model_name):
     for gpu_batch in chunked(get_input_frames(path), gpubatchsize):
         for mask in remove_many(gpu_batch,
-                    model_name="u2net_human_seg",
-                    compression = False,
-                    use_nnserver = False):
+                    model_name = model_name):
             yield mask
 
-def basic_greenscreen(path, gpubatchsize):
+def basic_greenscreen(path, gpubatchsize, model_name):
 
     command = None
     proc = None
 
-    for image in get_output_frames(gpubatchsize, path):
+    for image in get_output_frames(gpubatchsize, path, model_name):
 
         if command is None: 
             command = ['FFMPEG',

@@ -10,7 +10,12 @@ import ffmpeg
 
 compression = False
 
-def worker(return_dict, batch_number, frame_batch, gpu_batchsize, cpu_batchsize, use_nnserver):
+def worker(return_dict, 
+            batch_number, 
+            frame_batch, 
+            gpu_batchsize, 
+            cpu_batchsize, 
+            model_name):
     """worker function for processing the batch of frames"""
 
     # here we send batches that our GPU can handle, let's say 5-25 at a time
@@ -23,9 +28,7 @@ def worker(return_dict, batch_number, frame_batch, gpu_batchsize, cpu_batchsize,
         
         for frame in remove_many(
             frame_minibatch, 
-            model_name="u2net_human_seg",
-            compression = False,
-            use_nnserver = use_nnserver):
+            model_name=model_name):
 
             lst[frame_number] = frame
             frame_number = frame_number + 1
@@ -39,12 +42,6 @@ def get_input_frames(filepath):
     clip_resized = clip.resize(height=320)
 
     for frame in tqdm(clip_resized.iter_frames(dtype="uint8")):
-   
-        if compression:
-            compressed_array = io.BytesIO()    
-            np.savez_compressed(compressed_array, frame)
-            yield compressed_array
-        else:
             yield frame
 
 command = None
@@ -63,7 +60,7 @@ def get_output_frames(filepath,
         worker_nodes, 
         cpu_batchsize, 
         gpu_batchsize,
-        use_nnserver):
+        model_name):
 
     manager = multiprocessing.Manager()
     
@@ -79,7 +76,7 @@ def get_output_frames(filepath,
             p = multiprocessing.Process(target=worker, args=(
                 return_dict, mini_batch[0], 
                 mini_batch[1], gpu_batchsize, 
-                cpu_batchsize, use_nnserver))
+                cpu_batchsize, model_name))
 
             jobs.append(p)
             p.start()
@@ -98,7 +95,7 @@ def get_output_frames(filepath,
     # we will have one left over
     yield process_batch(previous_batch, worker_nodes)
 
-def parallel_greenscreen(filepath : str, worker_nodes, cpu_batchsize, gpu_batchsize, use_nnserver):
+def parallel_greenscreen(filepath : str, worker_nodes, cpu_batchsize, gpu_batchsize, model_name):
 
     command = None
     proc = None
@@ -108,23 +105,16 @@ def parallel_greenscreen(filepath : str, worker_nodes, cpu_batchsize, gpu_batchs
         worker_nodes, 
         cpu_batchsize, 
         gpu_batchsize,
-        use_nnserver):
+        model_name):
 
         for frame in gen:
-
-            if compression:
-                # decompress the mask frame
-                frame.seek(0)   
-                decompressed_array = np.load(frame)['arr_0']
-            else: 
-                decompressed_array = frame
 
             if command is None: 
                 command = ['FFMPEG',
                     '-y',
                     '-f', 'rawvideo',
                     '-vcodec','rawvideo',
-                    '-s', F"{decompressed_array.shape[1]}x320",
+                    '-s', F"{frame.shape[1]}x320",
                     '-pix_fmt', 'gray',
                     '-r', "30", # for now I am hardcoding it, I can always resize the clip in premiere anyway 
                     '-i', '-',  
@@ -134,7 +124,7 @@ def parallel_greenscreen(filepath : str, worker_nodes, cpu_batchsize, gpu_batchs
                     filepath.replace(".mp4", ".matte.mp4")  ]
                 proc = sp.Popen(command, stdin=sp.PIPE)
 
-            proc.stdin.write(decompressed_array.tostring())
+            proc.stdin.write(frame.tostring())
 
     proc.stdin.close()
     proc.wait() 

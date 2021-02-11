@@ -102,13 +102,8 @@ def load_model(model_name: str = "u2net"):
         if torch.cuda.is_available():
             net.load_state_dict(torch.load(path))
             net.to(torch.device("cuda"))
-        else:
-            net.load_state_dict(
-                torch.load(
-                    path,
-                    map_location="cpu",
-                )
-            )
+        else: 
+            raise Exception("GPU only")
     except FileNotFoundError:
         raise FileNotFoundError(
             errno.ENOENT, os.strerror(errno.ENOENT), model_name + ".pth"
@@ -126,8 +121,8 @@ def norm_pred(d):
 
     return dn
 
-def predict(net, items, use_nnserver=False):
-#
+def predict(net, items):
+
     resized = [ transform.resize(image,(320,320)) for image in items ] # expensive
     # note that transform.resize will return values on [0,1] )(float64)
     # so it silently converts them from 255 uint8
@@ -141,44 +136,12 @@ def predict(net, items, use_nnserver=False):
     # move color chanel to second
     master_images = np.moveaxis(master_images, 3, 1)
 
-    if not use_nnserver:
-        predict_np = nn_forwardpass(master_images, net)
-        imgs = [ Image.fromarray( (predict_np[i, :, :] * 255).astype(np.uint8), mode="L") for i in range(predict_np.shape[0]) ]
-    else:
-        # running in an MPI context, we call a shared NN server
-        predict_np = nn_forwardpass_http(master_images)
-        imgs = [ Image.fromarray( (predict_np[i, 0, :, :] * 255).astype(np.uint8), mode="L") for i in range(predict_np.shape[0]) ]
-       
+    predict_np = nn_forwardpass(master_images, net)
+    imgs = [ Image.fromarray( (predict_np[i, :, :] * 255).astype(np.uint8), mode="L") for i in range(predict_np.shape[0]) ]
 
     del predict_np
 
     return imgs
-
-def get_sharedmemory_key():
-    return requests.get("http://127.0.0.1:5000/key/").content.decode("utf-8")
-
-
-lock = Lock()
-
-# takes a stream of compressed (b,3,320,320)
-def nn_forwardpass_http(master_images):
-
-    key = get_sharedmemory_key()
-
-    existing_shm = shared_memory.SharedMemory(name=key)
-    # we have 10 slots in our numpy 
-
-    np_array = np.ndarray((master_images.shape[0],3,320,320), dtype=np.float32, buffer=existing_shm.buf)
-    result = np.ndarray((master_images.shape[0],3,320,320))
-
-    lock.acquire()
-    # do everything in here exclusively over all processes
-    np_array[:] = master_images
-    requests.post("http://127.0.0.1:5000")
-    result[:] = np_array
-    lock.release()
-
-    return result
 
 def nn_forwardpass(master_images, net):
 
