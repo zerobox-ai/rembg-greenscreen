@@ -127,11 +127,11 @@ def predict(net, items):
     # note that transform.resize will return values on [0,1] )(float64)
     # so it silently converts them from 255 uint8
     np_arrays = [ np.array(image) for image in resized]
-    master_images = np.array(np_arrays).astype(np.float32)
+    master_images = np.array(np_arrays).astype(np.float64)
 
-    #convert to BGR, as far as I can tell, this makes zero difference
-    #and for all I know, FFMPEG already gives us BGR..
-    master_images = master_images[:,:,:,[2,1,0]]
+    master_images[:, :, :, 0] = (master_images[:,:, :, 0] - 0.485) / 0.229
+    master_images[:, :, :, 1] = (master_images[:,:, :, 1] - 0.485) / 0.229
+    master_images[:, :, :, 2] = (master_images[:,:, :, 2] - 0.485) / 0.229
 
     # move color chanel to second
     master_images = np.moveaxis(master_images, 3, 1)
