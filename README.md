@@ -25,20 +25,26 @@ Rembg Virtual Greenscreen Edition is a tool to create a green screen matte for v
 Usage;
 
 ```
-python -m src.rembg.cmd.cli -g "video.mp4"
+pip install rembg-greenscreen
+
+greenscreen -g "path/video.mp4"
 ```
 
 Experimental parallel green screen version;
 
 ```
-python -m src.rembg.cmd.cli --parallelgreenscreen "video.mp4" --workernodes 3 --gpubatchsize 5
+greenscreen --parallelgreenscreen "path/video.mp4" --workernodes 3 --gpubatchsize 5
 ```
 
-Be careful with the default parameters, my 11GB GPU is already pretty much maxed with 3 instances of the NN with 5 image mini batches in forward pass. 
+The command above will produce a `video.matte.mp4` in the same folder, also works with `mov` and `avi` extensions. Uses ffmpeg under the hood to stream and re-encode the frames into a grayscale matte video. 
 
+Be careful with the default parameters, my 11GB GPU is already pretty much maxed with 3 instances of the NN with 5 image gpu batches in forward pass. 
 
-The command above will produce a `video.matte.mp4` in the same folder
+You can see how much free GPU ram you have with 
 
+```
+nvidia-smi
+```
 
 ## Architecture / performance log
 

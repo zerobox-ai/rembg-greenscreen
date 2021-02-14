@@ -30,6 +30,7 @@ def worker(worker_nodes,
 
         fi = list(fi)
 
+        # are we processing frames faster than the frame ripper is saving them?
         while fi[-1] not in frames_dict:
             time.sleep(0.1)
 
@@ -85,7 +86,7 @@ def process_frame_queue(frame_table,
                         '-an',
                         '-vcodec', 'mpeg4',   
                         '-b:v', '2000k',    
-                        re.sub("\.mp4", ".matte.mp4", file_path, flags=re.I) ]
+                        re.sub("\.(mp4|mov|avi)", ".matte.\\1", file_path, flags=re.I)  ]
 
                     proc = sp.Popen(command, stdin=sp.PIPE)
 
@@ -95,7 +96,7 @@ def process_frame_queue(frame_table,
                 if frame_counter >= total_frames: 
                     proc.stdin.close()
                     proc.wait() 
-                    print("FINISHED!")
+                    print(F"FINISHED ALL FRAMES ({total_frames})!")
                     return
 
     proc.stdin.close()
@@ -119,7 +120,8 @@ def capture_frames(file_path, frames_dict):
 def parallel_greenscreen(file_path, 
     worker_nodes, 
     gpu_batchsize, 
-    model_name):
+    model_name,
+    frame_limit):
 
     manager = multiprocessing.Manager()
 
@@ -128,13 +130,18 @@ def parallel_greenscreen(file_path,
 
     info = ffmpeg.probe(file_path)
     total_frames = int(info["streams"][0]["nb_frames"])
+
+    if frame_limit != -1:
+        total_frames = min(frame_limit, total_frames)
+
     frame_rate = math.ceil(eval(info["streams"][0]["r_frame_rate"]))
 
     print(F"FRAME RATE: {frame_rate} TOTAL FRAMES: {total_frames}")
 
-    p = multiprocessing.Process(target=capture_frames, args=( file_path, frames_dict ))
-    p.start()
-
+    p = multiprocessing.Process(
+        target=capture_frames, args=( file_path, frames_dict )
+        ).start()
+   
     for wn in range(worker_nodes):
         # note I am deliberatley not using pool
         # we can't trust it to run all the threads concurrently (or at all)

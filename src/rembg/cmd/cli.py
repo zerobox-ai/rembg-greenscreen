@@ -68,6 +68,14 @@ def main():
     )
 
     ap.add_argument(
+        "-fl",
+        "--framelimit",
+        default=-1,
+        type=int,
+        help="Limit the number of frames to process for quick testing.",
+    )
+
+    ap.add_argument(
             "-nns",
             "--nnserver",
             default=False,
@@ -93,13 +101,15 @@ def main():
         parallel_greenscreen(args.parallelgreenscreen, 
             worker_nodes = args.workernodes, 
             gpu_batchsize = args.gpubatchsize,
-            model_name = args.model)
+            model_name = args.model,
+            frame_limit = args.framelimit)
 
     elif args.greenscreen:
         basic_greenscreen(
             args.greenscreen, 
             args.gpubatchsize,
-            args.model)
+            args.model,
+            frame_limit = args.framelimit)
       
 
 if __name__ == "__main__":

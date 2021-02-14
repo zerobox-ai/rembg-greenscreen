@@ -3,7 +3,7 @@ import cv2
 import subprocess as sp
 from .bg import remove_many
 from more_itertools import chunked
-
+import re
 
 def get_input_frames(path):
     clip = mpy.VideoFileClip(path)
@@ -38,7 +38,7 @@ def basic_greenscreen(path, gpubatchsize, model_name):
                 '-an',
                 '-vcodec', 'mpeg4',   
                 '-b:v', '2000k',    
-                path.replace(".mp4", ".matte.mp4")  ]
+                re.sub("\.(mp4|mov|avi)", ".matte.\\1", "tim.mov", flags=re.I) ]
             proc = sp.Popen(command, stdin=sp.PIPE)
 
         proc.stdin.write(image.tostring())

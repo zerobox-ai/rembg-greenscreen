@@ -5,7 +5,8 @@ param(
 
 # note that this has been superceded by the streaming version in this repo
 # I am leaving this here for people who want to do it the manual ->JPG->FFMPEG 
-# way using Daniel's original version
+# way using Daniel's original version, having the physically transformed images on your
+# PC might give you more flexibility
 
 # does the target even exist?
 if( -not(Test-Path $target) ){
