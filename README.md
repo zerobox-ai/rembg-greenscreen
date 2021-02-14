@@ -31,10 +31,10 @@ python -m src.rembg.cmd.cli -g "video.mp4"
 Experimental parallel green screen version;
 
 ```
-python -m src.rembg.cmd.cli --parallelgreenscreen "video.mp4" --workernodes 3 --gpubatchsize 5 --cpubatchsize 2500
+python -m src.rembg.cmd.cli --parallelgreenscreen "video.mp4" --workernodes 3 --gpubatchsize 5
 ```
 
-Be careful with the default parameters, my 11GB GPU is already pretty much maxed with 3 instances of the NN with 5 image mini batches in forward pass. If you max your RAM (cpu * worker nodes) you will start swapping to disk and that will kill you.  
+Be careful with the default parameters, my 11GB GPU is already pretty much maxed with 3 instances of the NN with 5 image mini batches in forward pass. 
 
 
 The command above will produce a `video.matte.mp4` in the same folder
@@ -44,7 +44,6 @@ The command above will produce a `video.matte.mp4` in the same folder
 
 
 The first thing I changed in the architecture was as follows; 
-
 
 
 <p style="display: flex;align-items: center;justify-content: center;">
@@ -70,14 +69,6 @@ The next big problem which I assumed was the root of all the issues was the disk
 
 
 Much to my surprise though, even this architecture is getting poor throughput, about 15 frames per second end to end. This is disapointing. 
-
-This is a perf log of the code;
-
-<p style="display: flex;align-items: center;justify-content: center;">
-  <img src="https://raw.githubusercontent.com/ecsplendid/rembg/master/examples/perf.png" width="65%" />
-</p>
-
-Looking at this, there are no super obvious bottlenecks which stick out that we can do anything about, other than the obvious which is to use a smaller NN model. There are lots of expensive quadratic resize operations. We can probably improve some memory allocation and IO stuff. 
 
 
 <p style="display: flex;align-items: center;justify-content: center;">
@@ -116,16 +107,13 @@ I enhanced the multiprocessing architecture a bit:
 </p>
 
 Some thoughts on vnext above
-
-Please get in touch with me if you have more ideas.  
-
+ 
 Some ideas now: 
 
 * Get the worker nodes to stream in from the same video file independently, to save sending all the uncompressed video data over IPC (at least in one direction)
 * Even though the mask is mono, I am currently padding it to three channels (only way I could figure out how to get FFMPEG to write it). I could do this on the main thread and not send it over IPC, this would cut the data by a third. 
 * Get the workers to send the mask over IPC back to the main thread as a high quality JPG, this would probably cut the size down by 20x at least but lose tiny bit of quality and compute time
 * Carefully profile the actual masking code again and make some fine tuning, especially on the object allocation stuff
-
 
 Update 14th Feb:
 
@@ -145,7 +133,9 @@ Update 14th Feb:
 - The bottleneck for me is now CPU, with 4+ workers I get 100% CPU utilisation even on a 16 core machine
 - I am now getting ~45fps which seems to be the limit for my machine
 - Please play with the parallel version, experiment with different numbers of worker nodes and GPU batch sizes -- you will get OOM on your GFX easily so need to set them at the right level. 
-
+- Removed the experimental compression idea, and any unneeded code in general. 
+- Removed all the static image stuff from the original repo, this is 100% aimed at creating green screen mattes
+- The parallel version now detects the FPS and number of frames, I think you do actually get slightly better alignment if you set the correct FPS in FFMPEG from the get go
 
 
  [My Whimsical notes](https://whimsical.com/ffmpeg-virtial-greenscreen-tS2T9uthKdCWhxvBAFUcy) are here
