@@ -126,7 +126,27 @@ Some ideas now:
 * Get the workers to send the mask over IPC back to the main thread as a high quality JPG, this would probably cut the size down by 20x at least but lose tiny bit of quality and compute time
 * Carefully profile the actual masking code again and make some fine tuning, especially on the object allocation stuff
 
-This is pretty much at the point where I am happy-ish with it i.e. I can leave a lot of videos converting overnight and have confidence they will be ready in the morning. 
+
+Update 14th Feb:
+
+<p style="display: flex;align-items: center;justify-content: center;">
+  <img src="https://raw.githubusercontent.com/ecsplendid/rembg/master/examples/batching.png" width="65%" />
+</p>
+
+- independent FFMPEG process spooling in frames into shared memory
+- now python workers independently spool in from that shared memory, working in groups of frames as specified in the above image
+
+<p style="display: flex;align-items: center;justify-content: center;">
+  <img src="https://raw.githubusercontent.com/ecsplendid/rembg/master/examples/arch7.png" width="65%" />
+</p>
+
+- I have moved the GPU back entirely inline and in memory
+- I have discovered that the GPU is probably faster if you have many models in memory with small batches, the total memory is a function of total images being processed not models present in memory
+- The bottleneck for me is now CPU, with 4+ workers I get 100% CPU utilisation even on a 16 core machine
+- I am now getting ~45fps which seems to be the limit for my machine
+- Please play with the parallel version, experiment with different numbers of worker nodes and GPU batch sizes -- you will get OOM on your GFX easily so need to set them at the right level. 
+
+
 
  [My Whimsical notes](https://whimsical.com/ffmpeg-virtial-greenscreen-tS2T9uthKdCWhxvBAFUcy) are here
 
