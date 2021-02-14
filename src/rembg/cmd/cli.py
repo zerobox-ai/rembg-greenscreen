@@ -110,6 +110,9 @@ def main():
             args.gpubatchsize,
             args.model,
             frame_limit = args.framelimit)
+
+    else:
+        ap.print_help()
       
 
 if __name__ == "__main__":
