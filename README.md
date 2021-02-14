@@ -46,6 +46,13 @@ You can see how much free GPU ram you have with
 nvidia-smi
 ```
 
+## CLI interface
+
+<p style="display: flex;align-items: center;justify-content: center;">
+  <img src="https://raw.githubusercontent.com/ecsplendid/rembg/master/examples/greenscreen_cli.png" width="65%" />
+</p>
+
+
 ## Architecture / performance log
 
 

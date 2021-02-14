@@ -53,36 +53,11 @@ def main():
     )
 
     ap.add_argument(
-        "-o",
-        "--output",
-        nargs="?",
-        default="-",
-        type=str,
-        help="Path to the output png image.",
-    )
-
-    ap.add_argument(
         "-fl",
         "--framelimit",
         default=-1,
         type=int,
         help="Limit the number of frames to process for quick testing.",
-    )
-
-    ap.add_argument(
-            "-nns",
-            "--nnserver",
-            default=False,
-            type=bool,
-            help="Use the NN HTTP server?",
-        )
-
-    ap.add_argument(
-        "input",
-        nargs="?",
-        default="-",
-        type=argparse.FileType("rb"),
-        help="Path to the input image.",
     )
 
     args = ap.parse_args()
