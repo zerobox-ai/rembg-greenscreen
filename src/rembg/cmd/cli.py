@@ -1,12 +1,6 @@
 import argparse
-from itertools import islice
 from ..basic_greenscreen import basic_greenscreen
 from ..multiprocessing import parallel_greenscreen
-from ..bg import remove_many
-
-def batch(iterable, batch_size):
-    while batch := list(islice(iterable, batch_size)):
-        yield batch
 
 def main():
     ap = argparse.ArgumentParser()
