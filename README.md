@@ -145,20 +145,6 @@ Update 14th Feb:
 * Don't use VBR videos, it will run forever -- use Handbrake to convert them to CFR
 
 
-### Usage as a cli
-
-
-Remove the background from all images in a folder
-```bash
-rembg -p path/to/inputs
-```
-
-Produce a matte from a video
-```bash
-rembg -g path/to/video
-```
-
-
 ### References
 
 - https://arxiv.org/pdf/2005.09007.pdf
