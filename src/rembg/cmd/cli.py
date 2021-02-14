@@ -41,17 +41,11 @@ def main():
         help="Path of a video for parallel green screen.",
     )
 
-    ap.add_argument(
-        "-cb",
-        "--cpubatchsize",
-        default=200,
-        type=int,
-        help="CPU batchsize"
-    )
+
     ap.add_argument(
         "-wn",
         "--workernodes",
-        default=1,
+        default=4,
         type=int,
         help="GPU batchsize"
     )
@@ -59,7 +53,7 @@ def main():
     ap.add_argument(
         "-gb",
         "--gpubatchsize",
-        default=20,
+        default=2,
         type=int,
         help="GPU batchsize"
     )
@@ -98,7 +92,6 @@ def main():
 
         parallel_greenscreen(args.parallelgreenscreen, 
             worker_nodes = args.workernodes, 
-            cpu_batchsize = args.cpubatchsize, 
             gpu_batchsize = args.gpubatchsize,
             model_name = args.model)
 

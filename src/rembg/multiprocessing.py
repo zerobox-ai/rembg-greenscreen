@@ -1,130 +1,153 @@
-import io
 import multiprocessing
 import moviepy.editor as mpy
-import numpy as np
 import subprocess as sp
 from .bg import remove_many
 from more_itertools import chunked
-from tqdm import tqdm
+import time 
+import math
 import ffmpeg
+import re
 
-compression = False
+def worker(worker_nodes,
+            worker_index,
+            result_dict, 
+            model_name, 
+            gpu_batchsize,
+            total_frames,
+            frames_dict):
 
-def worker(return_dict, 
-            batch_number, 
-            frame_batch, 
-            gpu_batchsize, 
-            cpu_batchsize, 
-            model_name):
-    """worker function for processing the batch of frames"""
+    i = 0
 
-    # here we send batches that our GPU can handle, let's say 5-25 at a time
+    frame_indexes = chunked(range(total_frames),gpu_batchsize)
 
-    lst = [None] * cpu_batchsize
-    frame_number = 0
+    print(F"WORKER {worker_index} ONLINE")
 
-    # there are cpu_batchsize items and gpu_batchsize
-    for frame_minibatch in chunked(frame_batch, gpu_batchsize):
-        
-        for frame in remove_many(
-            frame_minibatch, 
-            model_name=model_name):
+    # skip ahead depending on the worker index
+    for wi in range(worker_index):
+        next(frame_indexes)
 
-            lst[frame_number] = frame
-            frame_number = frame_number + 1
-       
-    return_dict[batch_number] = lst
+    while(fi := next(frame_indexes, False)):
 
+        fi = list(fi)
 
-def get_input_frames(filepath):
-    
-    clip = mpy.VideoFileClip(filepath)
-    clip_resized = clip.resize(height=320)
+        while fi[-1] not in frames_dict:
+            time.sleep(0.1)
 
-    for frame in tqdm(clip_resized.iter_frames(dtype="uint8")):
-            yield frame
+        frames = [ frames_dict[index] for index in fi ]
 
-command = None
-proc = None
+        result_dict[(worker_nodes*i)+(worker_index+1)] = list(remove_many(frames, model_name))
 
-def process_batch(batch, no_batches):
-    for bn in range(0,no_batches):
-        if bn in batch:
-            for mask in batch[bn]:
+        # clean up the frame buffer
+        for fdex in fi:
+            del frames_dict[fdex]
 
-                # we use a fixed size data structure, gap at end
-                if mask is not None:
-                    yield mask
+        i = i + 1
 
-def get_output_frames(filepath,
-        worker_nodes, 
-        cpu_batchsize, 
-        gpu_batchsize,
-        model_name):
+        # skip ahead
+        for wi in range(worker_nodes-1):
+           next(frame_indexes, "-1")
+     
 
-    manager = multiprocessing.Manager()
-    
-    previous_batch = None
-
-    for worker_batch in chunked(get_input_frames(filepath), worker_nodes * cpu_batchsize):
-
-        return_dict = manager.dict()
-        jobs = []
-
-        for mini_batch in enumerate(chunked(worker_batch, cpu_batchsize)):
-
-            p = multiprocessing.Process(target=worker, args=(
-                return_dict, mini_batch[0], 
-                mini_batch[1], gpu_batchsize, 
-                cpu_batchsize, model_name))
-
-            jobs.append(p)
-            p.start()
-
-        # ON PREV BATCH IF PREV BATCH
-        # this means we can be busy yielding to FFMPEG
-        # while our workers are busy processing new frames
-        if previous_batch:
-            yield process_batch(previous_batch, worker_nodes)
-        
-        for proc in jobs:
-            proc.join()
-            
-        previous_batch = return_dict
-
-    # we will have one left over
-    yield process_batch(previous_batch, worker_nodes)
-
-def parallel_greenscreen(filepath : str, worker_nodes, cpu_batchsize, gpu_batchsize, model_name):
+def process_frame_queue(frame_table, 
+    file_path, 
+    total_frames, 
+    worker_nodes, 
+    frame_rate):
 
     command = None
     proc = None
+    hash_index = 0
+    frame_counter = 0
 
-    for gen in get_output_frames(
-        filepath,
-        worker_nodes, 
-        cpu_batchsize, 
-        gpu_batchsize,
-        model_name):
+    for i in range( math.ceil(total_frames/worker_nodes) ):
 
-        for frame in gen:
+        for wx in range(worker_nodes):
 
-            if command is None: 
-                command = ['FFMPEG',
-                    '-y',
-                    '-f', 'rawvideo',
-                    '-vcodec','rawvideo',
-                    '-s', F"{frame.shape[1]}x320",
-                    '-pix_fmt', 'gray',
-                    '-r', "30", # for now I am hardcoding it, I can always resize the clip in premiere anyway 
-                    '-i', '-',  
-                    '-an',
-                    '-vcodec', 'mpeg4',   
-                    '-b:v', '2000k',    
-                    filepath.replace(".mp4", ".matte.mp4")  ]
-                proc = sp.Popen(command, stdin=sp.PIPE)
+            hash_index = i * worker_nodes + 1 + wx
 
-            proc.stdin.write(frame.tostring())
+            while hash_index not in frame_table:
+                time.sleep(0.01)
+
+            frames = frame_table[hash_index]
+            # dont block access to it anymore
+            del frame_table[hash_index]
+
+            for frame in frames:
+                if command is None: 
+                    command = ['FFMPEG',
+                        '-y',
+                        '-f', 'rawvideo',
+                        '-vcodec','rawvideo',
+                        '-s', F"{frame.shape[1]}x320",
+                        '-pix_fmt', 'gray',
+                        '-r', F"{frame_rate}",
+                        '-i', '-',  
+                        '-an',
+                        '-vcodec', 'mpeg4',   
+                        '-b:v', '2000k',    
+                        re.sub("\.mp4", ".matte.mp4", file_path, flags=re.I) ]
+
+                    proc = sp.Popen(command, stdin=sp.PIPE)
+
+                proc.stdin.write(frame.tostring())
+                frame_counter = frame_counter + 1
+
+                if frame_counter >= total_frames: 
+                    proc.stdin.close()
+                    proc.wait() 
+                    print("FINISHED!")
+                    return
 
     proc.stdin.close()
     proc.wait() 
+
+def get_input_frames(file_path):
+    
+    print(F"WORKER FRAMERIPPER ONLINE")
+
+    clip = mpy.VideoFileClip(file_path)
+    clip_resized = clip.resize(height=320)
+
+    for frame in clip_resized.iter_frames(dtype="uint8"):
+            yield frame
+
+def capture_frames(file_path, frames_dict):
+    
+    for f in enumerate(get_input_frames(file_path)):
+        frames_dict[f[0]] = f[1]
+
+def parallel_greenscreen(file_path, 
+    worker_nodes, 
+    gpu_batchsize, 
+    model_name):
+
+    manager = multiprocessing.Manager()
+
+    results_dict = manager.dict()
+    frames_dict = manager.dict()
+
+    info = ffmpeg.probe(file_path)
+    total_frames = int(info["streams"][0]["nb_frames"])
+    frame_rate = math.ceil(eval(info["streams"][0]["r_frame_rate"]))
+
+    print(F"FRAME RATE: {frame_rate} TOTAL FRAMES: {total_frames}")
+
+    p = multiprocessing.Process(target=capture_frames, args=( file_path, frames_dict ))
+    p.start()
+
+    for wn in range(worker_nodes):
+        # note I am deliberatley not using pool
+        # we can't trust it to run all the threads concurrently (or at all)
+        multiprocessing.Process(target=worker, args=( worker_nodes, wn,
+            results_dict, 
+            model_name, 
+            gpu_batchsize, total_frames, frames_dict)).start()
+
+    process_frame_queue(results_dict, 
+        file_path, 
+        total_frames, 
+        worker_nodes, 
+        frame_rate)
+
+    
+    
