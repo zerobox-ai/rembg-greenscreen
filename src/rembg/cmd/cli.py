@@ -1,6 +1,7 @@
 import argparse
 from ..basic_greenscreen import basic_greenscreen
 from ..multiprocessing import parallel_greenscreen
+import os
 
 def main():
     ap = argparse.ArgumentParser()
@@ -67,7 +68,7 @@ def main():
 
     if args.parallelgreenscreen:
 
-        parallel_greenscreen(args.parallelgreenscreen, 
+        parallel_greenscreen(os.path.abspath(args.parallelgreenscreen), 
             worker_nodes = args.workernodes, 
             gpu_batchsize = args.gpubatchsize,
             model_name = args.model,
@@ -75,7 +76,7 @@ def main():
 
     elif args.greenscreen:
         basic_greenscreen(
-            args.greenscreen, 
+            os.path.abspath(args.greenscreen), 
             args.gpubatchsize,
             args.model,
             frame_limit = args.framelimit)

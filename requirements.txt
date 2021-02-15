@@ -1,11 +1,11 @@
 numpy==1.19.4
-torchvision==0.8.2
+torchvision
 PyMatting==1.1.1
 tqdm==4.56.0
 more_itertools==8.7.0
 moviepy==1.0.3
 ffmpeg_python==0.2.0
-torch==1.7.1
+torch
 scikit_image==0.17.2
 requests==2.25.1
 hsh==1.1.0

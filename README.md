@@ -10,9 +10,9 @@ Rembg Virtual Greenscreen Edition is a tool to create a green screen matte for v
 
 ## Video Virtual Green Screen Edition
 
+[15th Jan 2021 -- made a new YouTube explainer](https://www.youtube.com/watch?v=4NjqR2vCV_k)
 
-[WATCH THE VIDEO DEMONSTRATION/Explainer HERE](https://share.descript.com/view/YTo9QAZU5EC)
-
+[WATCH THE VIDEO OLD DEMONSTRATION/Explainer HERE](https://share.descript.com/view/YTo9QAZU5EC)
 
 * Take any  video file and convert it to an alpha matte to apply for a virtual green screen
 * It runs end-to-end non-interactively 
