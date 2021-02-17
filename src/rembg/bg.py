@@ -76,7 +76,7 @@ def get_model(model_name, dtype):
 
 @torch.jit.script
 @torch.no_grad()
-def _remove_many_torch(image_data):
+def _remove_many_torch(image_data: torch.Tensor, dtype: torch.dtype):
     original_shape = image_data.shape[1:3]
     image_data = torch.transpose(image_data, 1, 3)
     image_data = torch.nn.functional.interpolate(image_data, (320, 320), mode='bilinear')
@@ -98,5 +98,5 @@ def _remove_many_torch(image_data):
 def remove_many(image_data: typing.List[np.array], net: typing.Union[u2net.U2NET, u2net.U2NETP], dtype: torch.dtype):
     image_data = np.stack(image_data)
     image_data = torch.as_tensor(image_data, dtype=torch.float32, device=DEVICE)
-    dn = _remove_many_torch(image_data).numpy()
+    dn = _remove_many_torch(image_data, dtype).numpy()
     return dn
