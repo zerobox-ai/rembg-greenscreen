@@ -20,11 +20,10 @@ def worker(worker_nodes,
            frames_dict):
     print(F"WORKER {worker_index} ONLINE")
 
-    frame_indexes = chunked(range(total_frames), gpu_batchsize)[worker_index::worker_nodes - 1]
-    worker_index += 1
-
-    while True:
-        fi = list(next(frame_indexes, []))
+    output_index = worker_index + 1
+    worker_nodesm1 = worker_nodes-1
+    base_index = worker_index * gpu_batchsize
+    for fi in (list(range(base_index + i * worker_nodesm1)) for i in range(math.ceil(total_frames / worker_nodesm1))):
         if not fi:
             break
 
@@ -33,26 +32,26 @@ def worker(worker_nodes,
         while last not in frames_dict:
             time.sleep(0.1)
 
-        result_dict[worker_index] = remove_many([frames_dict[index] for index in fi], model_name)
+        result_dict[output_index] = remove_many([frames_dict[index] for index in fi], model_name)
 
         # clean up the frame buffer
         for fdex in fi:
             del frames_dict[fdex]
-        worker_index += worker_nodes
+        output_index += worker_nodes
 
 
 def capture_frames(file_path, frames_dict):
     print(F"WORKER FRAMERIPPER ONLINE")
 
-    for frame in mpy.VideoFileClip(file_path).resize(height=320).iter_frames(dtype="uint8"):
-        frames_dict[frame[0]] = frame[1]
+    for idx, frame in enumerate(mpy.VideoFileClip(file_path).resize(height=320).iter_frames(dtype="uint8")):
+        frames_dict[idx] = frame
 
 
 def parallel_greenscreen(file_path,
                          worker_nodes,
                          gpu_batchsize,
                          model_name,
-                         frame_limit):
+                         frame_limit=-1):
     manager = multiprocessing.Manager()
 
     results_dict = manager.dict()
