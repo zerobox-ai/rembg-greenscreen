@@ -15,12 +15,13 @@ def worker(worker_nodes,
            model_name,
            gpu_batchsize,
            total_frames,
-           frames_dict):
+           frames_dict,
+           dtype):
     print(F"WORKER {worker_index} ONLINE")
 
     output_index = worker_index + 1
     base_index = worker_index * gpu_batchsize
-    net = get_model(model_name)
+    net = get_model(model_name, dtype)
     for fi in (list(range(base_index + i * worker_nodes,
                           min(base_index + i * worker_nodes + gpu_batchsize, total_frames)))
                for i in range(0, math.ceil(total_frames / worker_nodes), gpu_batchsize)):
@@ -32,7 +33,7 @@ def worker(worker_nodes,
         while last not in frames_dict:
             time.sleep(0.1)
 
-        result_dict[output_index] = remove_many([frames_dict[index] for index in fi], net)
+        result_dict[output_index] = remove_many([frames_dict[index] for index in fi], net, dtype)
 
         # clean up the frame buffer
         for fdex in fi:
@@ -53,6 +54,7 @@ def parallel_greenscreen(file_path,
                          worker_nodes,
                          gpu_batchsize,
                          model_name,
+                         dtype,
                          frame_limit=-1,
                          prefetched_batches=4):
     manager = multiprocessing.Manager()
@@ -78,7 +80,7 @@ def parallel_greenscreen(file_path,
     # we can't trust it to run all the threads concurrently (or at all)
     workers = [multiprocessing.Process(target=worker,
                                        args=(worker_nodes, wn, results_dict, model_name, gpu_batchsize, total_frames,
-                                             frames_dict))
+                                             frames_dict, dtype))
                for wn in range(worker_nodes)]
     for w in workers:
         w.start()

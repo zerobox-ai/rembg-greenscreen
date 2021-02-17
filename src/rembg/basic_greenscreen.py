@@ -6,15 +6,15 @@ from more_itertools import chunked
 from .bg import get_model, iter_frames, remove_many
 
 
-def basic_greenscreen(path, gpubatchsize, model_name, frame_limit=-1):
+def basic_greenscreen(path, gpubatchsize, model_name, dtype, frame_limit=-1):
     command = None
     proc = None
-    net = get_model(model_name)
+    net = get_model(model_name, dtype)
     for gpu_batch in chunked(iter_frames(path), gpubatchsize):
         if 0 < frame_limit < gpubatchsize:
             break
         frame_limit -= gpu_batch
-        for image in remove_many(gpu_batch, net):
+        for image in remove_many(gpu_batch, net, dtype):
             if command is None:
                 command = ['FFMPEG',
                            '-y',

@@ -19,7 +19,7 @@ def iter_frames(path):
     return mpy.VideoFileClip(path).resize(height=320).iter_frames(dtype="uint8")
 
 
-def get_model(model_name):
+def get_model(model_name, dtype):
     hasher = Hasher()
 
     model, hash_val, drive_target, env_var = {
@@ -70,23 +70,27 @@ def get_model(model_name):
                 size = file.write(data)
                 bar.update(size)
     net.load_state_dict(torch.load(path, map_location=torch.device(DEVICE)))
-    net.to(DEVICE)
+    net.to(device=DEVICE, dtype=dtype)
     net.eval()
     return net
 
 
 @torch.no_grad()
-def remove_many(image_data: typing.List[np.array], net):
+def remove_many(image_data: typing.List[np.array], net: typing.Union[u2net.U2NET, u2net.U2NETP], dtype: torch.dtype):
     image_data = np.stack(image_data)
     original_shape = image_data.shape[1:3]
     image_data = torch.as_tensor(image_data, dtype=torch.float32, device=DEVICE)
     image_data = torch.transpose(image_data, 1, 3)
     image_data = torch.nn.functional.interpolate(image_data, (320, 320), mode='bilinear')
+    if dtype != torch.float32:
+        image_data = image_data.to(dtype)
     image_data = (image_data / 255 - 0.485) / 0.229
     out = net(image_data)[:, 0:1]
     ma = torch.max(out)
     mi = torch.min(out)
     dn = (out - mi) / (ma - mi) * 255
+    if dtype != torch.float32:
+        dn = image_data.to(torch.float32)
     dn = torch.nn.functional.interpolate(dn, original_shape, mode='bilinear')
     dn = dn[:, 0]
     dn = dn.to(dtype=torch.uint8, device=torch.device('cpu')).detach().numpy()

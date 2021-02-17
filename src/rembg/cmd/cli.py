@@ -1,6 +1,8 @@
 import argparse
 import os
 
+import torch
+
 from ..basic_greenscreen import basic_greenscreen
 from ..multiprocessing import parallel_greenscreen
 
@@ -41,15 +43,15 @@ def main():
     ap.add_argument(
         "-wn",
         "--workernodes",
-        default=4,
+        default=1,
         type=int,
-        help="GPU batchsize"
+        help="Number of parallel workers"
         )
 
     ap.add_argument(
         "-gb",
         "--gpubatchsize",
-        default=2,
+        default=8,
         type=int,
         help="GPU batchsize"
         )
@@ -61,8 +63,16 @@ def main():
         type=int,
         help="Limit the number of frames to process for quick testing.",
         )
+    ap.add_argument(
+        "-hf",
+        "--half",
+        default=0,
+        type=bool,
+        help="Whether to use half precision or full precision floats.",
+        )
 
     args = ap.parse_args()
+    dtype = torch.float16 if args.half else torch.float32
 
     if args.parallelgreenscreen:
 
@@ -70,14 +80,16 @@ def main():
                              worker_nodes=args.workernodes,
                              gpu_batchsize=args.gpubatchsize,
                              model_name=args.model,
-                             frame_limit=args.framelimit)
+                             frame_limit=args.framelimit,
+                             dtype=dtype)
 
     elif args.greenscreen:
         basic_greenscreen(
             os.path.abspath(args.greenscreen),
             args.gpubatchsize,
             args.model,
-            frame_limit=args.framelimit)
+            frame_limit=args.framelimit,
+            dtype=dtype)
 
     else:
         ap.print_help()
