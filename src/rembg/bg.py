@@ -74,12 +74,10 @@ def get_model(model_name, dtype):
     net.eval()
     return net
 
-
+@torch.jit.script
 @torch.no_grad()
-def remove_many(image_data: typing.List[np.array], net: typing.Union[u2net.U2NET, u2net.U2NETP], dtype: torch.dtype):
-    image_data = np.stack(image_data)
+def _remove_many_torch(image_data):
     original_shape = image_data.shape[1:3]
-    image_data = torch.as_tensor(image_data, dtype=torch.float32, device=DEVICE)
     image_data = torch.transpose(image_data, 1, 3)
     image_data = torch.nn.functional.interpolate(image_data, (320, 320), mode='bilinear')
     if dtype != torch.float32:
@@ -93,5 +91,12 @@ def remove_many(image_data: typing.List[np.array], net: typing.Union[u2net.U2NET
         dn = image_data.to(torch.float32, non_blocking=True)
     dn = torch.nn.functional.interpolate(dn, original_shape, mode='bilinear')
     dn = dn[:, 0]
-    dn = dn.to(dtype=torch.uint8, device=torch.device('cpu'), non_blocking=True).detach().numpy()
+    dn = dn.to(dtype=torch.uint8, device=torch.device('cpu'), non_blocking=True).detach()
+    return dn
+
+@torch.no_grad()
+def remove_many(image_data: typing.List[np.array], net: typing.Union[u2net.U2NET, u2net.U2NETP], dtype: torch.dtype):
+    image_data = np.stack(image_data)
+    image_data = torch.as_tensor(image_data, dtype=torch.float32, device=DEVICE)
+    dn = _remove_many_torch(image_data).numpy()
     return dn
