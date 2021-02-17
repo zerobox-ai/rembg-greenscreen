@@ -40,18 +40,21 @@ def worker(worker_nodes,
         output_index += worker_nodes
 
 
-def capture_frames(file_path, frames_dict):
+def capture_frames(file_path, frames_dict, prefetched_samples):
     print(F"WORKER FRAMERIPPER ONLINE")
 
     for idx, frame in enumerate(iter_frames(file_path)):
         frames_dict[idx] = frame
+        while len(frames_dict) > prefetched_samples:
+            time.sleep(0.1)
 
 
 def parallel_greenscreen(file_path,
                          worker_nodes,
                          gpu_batchsize,
                          model_name,
-                         frame_limit=-1):
+                         frame_limit=-1,
+                         prefetched_batches=4):
     manager = multiprocessing.Manager()
 
     results_dict = manager.dict()
@@ -67,7 +70,8 @@ def parallel_greenscreen(file_path,
 
     print(F"FRAME RATE: {frame_rate} TOTAL FRAMES: {total_frames}")
 
-    p = multiprocessing.Process(target=capture_frames, args=(file_path, frames_dict))
+    p = multiprocessing.Process(target=capture_frames,
+                                args=(file_path, frames_dict, gpu_batchsize * prefetched_batches))
     p.start()
 
     # note I am deliberatley not using pool
@@ -82,7 +86,6 @@ def parallel_greenscreen(file_path,
     command = None
     proc = None
     frame_counter = 0
-
     for i in range(math.ceil(total_frames / worker_nodes)):
         for wx in range(worker_nodes):
 
@@ -108,7 +111,7 @@ def parallel_greenscreen(file_path,
                                '-an',
                                '-vcodec', 'mpeg4',
                                '-b:v', '2000k',
-                               re.sub("\.(mp4|mov|avi)", ".matte.\\1", file_path, flags=re.I)]
+                               re.sub(r"\.(mp4|mov|avi)", r".matte.\1", file_path, flags=re.I)]
 
                     proc = sp.Popen(command, stdin=sp.PIPE)
 
