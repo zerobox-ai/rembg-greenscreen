@@ -13,7 +13,7 @@ def basic_greenscreen(path, gpubatchsize, model_name, dtype, frame_limit=-1):
     for gpu_batch in chunked(iter_frames(path), gpubatchsize):
         if 0 < frame_limit < gpubatchsize:
             break
-        frame_limit -= gpu_batch
+        frame_limit -= gpubatchsize
         for image in remove_many(gpu_batch, net, dtype):
             if command is None:
                 command = ['FFMPEG',
