@@ -409,15 +409,7 @@ class U2NET(nn.Module):
 
         d0 = self.outconv(torch.cat((d1, d2, d3, d4, d5, d6), 1))
 
-        return (
-            torch.sigmoid(d0),
-            torch.sigmoid(d1),
-            torch.sigmoid(d2),
-            torch.sigmoid(d3),
-            torch.sigmoid(d4),
-            torch.sigmoid(d5),
-            torch.sigmoid(d6),
-            )
+        return torch.sigmoid(d0)
 
 
 ### U^2-Net small ###
