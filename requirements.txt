@@ -9,6 +9,6 @@ torch
 scikit_image==0.17.2
 requests==2.25.1
 hsh==1.1.0
-ffmpeg==1.4
+python-ffmpeg
 Pillow==8.1.0
 scikit-image
