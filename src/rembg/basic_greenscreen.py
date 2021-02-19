@@ -32,7 +32,7 @@ def basic_greenscreen(path, gpubatchsize, model_name, frame_limit=-1):
                            '-an',
                            '-vcodec', 'mpeg4',
                            '-b:v', '2000k',
-                           re.sub(r"\.(mp4|mov|avi)", r".matte.\1", "tim.mov", flags=re.I)]
+                           re.sub(r"\.(mp4|mov|avi)", r".matte.\1", path, flags=re.I)]
                 proc = sp.Popen(command, stdin=sp.PIPE)
             proc.stdin.write(image.tostring())
     if isinstance(proc, sp.Popen):
