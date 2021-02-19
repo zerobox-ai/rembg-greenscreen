@@ -78,7 +78,7 @@ class Net(torch.nn.Module):
 
     def forward(self, block_input: torch.Tensor):
         image_data = block_input.permute(0, 3, 1, 2)
-        original_shape = block_input.shape[2:]
+        original_shape = image_data.shape[2:]
         image_data = torch.nn.functional.interpolate(image_data, (320, 320), mode='bilinear')
         image_data = (image_data / 255 - 0.485) / 0.229
         out = self.net(image_data)[:, 0:1]
