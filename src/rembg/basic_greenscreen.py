@@ -1,47 +1,40 @@
-import moviepy.editor as mpy
-import cv2
-import subprocess as sp
-from .bg import remove_many
-from more_itertools import chunked
 import re
+import subprocess as sp
 
-def get_input_frames(path):
-    clip = mpy.VideoFileClip(path)
-    clip_resized = clip.resize(height=320)
-    img_number = 0
+import numpy as np
+import torch
+from more_itertools import chunked
 
-    for frame in clip_resized.iter_frames(dtype="uint8"):
-        yield frame
+from .bg import DEVICE, Net, iter_frames, remove_many
 
-def get_output_frames(gpubatchsize, path, model_name):
-    for gpu_batch in chunked(get_input_frames(path), gpubatchsize):
-        for mask in remove_many(gpu_batch,
-                    model_name = model_name):
-            yield mask
 
-def basic_greenscreen(path, gpubatchsize, model_name):
-
+def basic_greenscreen(path, gpubatchsize, model_name, frame_limit=-1):
     command = None
     proc = None
-
-    for image in get_output_frames(gpubatchsize, path, model_name):
-
-        if command is None: 
-            command = ['FFMPEG',
-                '-y',
-                '-f', 'rawvideo',
-                '-vcodec','rawvideo',
-                '-s', F"{image.shape[1]}x320",
-                '-pix_fmt', 'gray',
-                '-r', "30", # for now I am hardcoding it, I can always resize the clip in premiere anyway 
-                '-i', '-',  
-                '-an',
-                '-vcodec', 'mpeg4',   
-                '-b:v', '2000k',    
-                re.sub("\.(mp4|mov|avi)", ".matte.\\1", "tim.mov", flags=re.I) ]
-            proc = sp.Popen(command, stdin=sp.PIPE)
-
-        proc.stdin.write(image.tostring())
-
-    proc.stdin.close()
-    proc.wait()
+    net = Net(model_name)
+    script_net = None
+    for gpu_batch in chunked(iter_frames(path), gpubatchsize):
+        if 0 <= frame_limit < gpubatchsize:
+            break
+        frame_limit -= gpubatchsize
+        if script_net is None:
+            script_net = torch.jit.trace(net, torch.as_tensor(np.stack(gpu_batch), dtype=torch.float32, device=DEVICE))
+        for image in remove_many(gpu_batch, script_net):
+            if command is None:
+                command = ['FFMPEG',
+                           '-y',
+                           '-f', 'rawvideo',
+                           '-vcodec', 'rawvideo',
+                           '-s', F"{image.shape[1]}x320",
+                           '-pix_fmt', 'gray',
+                           '-r', "30",  # for now I am hardcoding it, I can always resize the clip in premiere anyway
+                           '-i', '-',
+                           '-an',
+                           '-vcodec', 'mpeg4',
+                           '-b:v', '2000k',
+                           re.sub(r"\.(mp4|mov|avi)", r".matte.\1", path, flags=re.I)]
+                proc = sp.Popen(command, stdin=sp.PIPE)
+            proc.stdin.write(image.tostring())
+    if isinstance(proc, sp.Popen):
+        proc.stdin.close()
+        proc.wait()
