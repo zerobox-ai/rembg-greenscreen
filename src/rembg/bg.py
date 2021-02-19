@@ -77,9 +77,9 @@ class Net(torch.nn.Module):
         self.net = net
         self.dtype: torch.dtype = dtype
 
-    def forward(self, block_input):
+    def forward(self, block_input: torch.Tensor):
         original_shape = block_input.shape[1:3]
-        image_data = torch.transpose(block_input, 1, 3)
+        image_data = block_input.permute(0, 3, 1, 2)
         image_data = torch.nn.functional.interpolate(image_data, (320, 320), mode='bilinear')
         if self.dtype != torch.float32:
             image_data = image_data.to(self.dtype, non_blocking=True)
