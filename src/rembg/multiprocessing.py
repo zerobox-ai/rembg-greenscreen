@@ -17,13 +17,12 @@ def worker(worker_nodes,
            model_name,
            gpu_batchsize,
            total_frames,
-           frames_dict,
-           dtype):
+           frames_dict):
     print(F"WORKER {worker_index} ONLINE")
 
     output_index = worker_index + 1
     base_index = worker_index * gpu_batchsize
-    net = Net(model_name, dtype)
+    net = Net(model_name)
     script_net = None
     for fi in (list(range(base_index + i * worker_nodes * gpu_batchsize,
                           min(base_index + i * worker_nodes * gpu_batchsize + gpu_batchsize, total_frames)))
@@ -62,7 +61,6 @@ def parallel_greenscreen(file_path,
                          worker_nodes,
                          gpu_batchsize,
                          model_name,
-                         dtype,
                          frame_limit=-1,
                          prefetched_batches=4):
     manager = multiprocessing.Manager()
@@ -88,7 +86,7 @@ def parallel_greenscreen(file_path,
     # we can't trust it to run all the threads concurrently (or at all)
     workers = [multiprocessing.Process(target=worker,
                                        args=(worker_nodes, wn, results_dict, model_name, gpu_batchsize, total_frames,
-                                             frames_dict, dtype))
+                                             frames_dict))
                for wn in range(worker_nodes)]
     for w in workers:
         w.start()

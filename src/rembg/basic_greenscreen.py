@@ -8,10 +8,10 @@ from more_itertools import chunked
 from .bg import DEVICE, Net, iter_frames, remove_many
 
 
-def basic_greenscreen(path, gpubatchsize, model_name, dtype, frame_limit=-1):
+def basic_greenscreen(path, gpubatchsize, model_name, frame_limit=-1):
     command = None
     proc = None
-    net = Net(model_name, dtype)
+    net = Net(model_name)
     script_net = None
     for gpu_batch in chunked(iter_frames(path), gpubatchsize):
         if 0 <= frame_limit < gpubatchsize:

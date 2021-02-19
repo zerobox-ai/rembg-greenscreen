@@ -63,33 +63,22 @@ def main():
         type=int,
         help="Limit the number of frames to process for quick testing.",
         )
-    ap.add_argument(
-        "-hf",
-        "--half",
-        default=0,
-        type=bool,
-        help="Whether to use half precision or full precision floats.",
-        )
 
     args = ap.parse_args()
-    dtype = torch.float16 if args.half else torch.float32
-
     if args.parallelgreenscreen:
 
         parallel_greenscreen(os.path.abspath(args.parallelgreenscreen),
                              worker_nodes=args.workernodes,
                              gpu_batchsize=args.gpubatchsize,
                              model_name=args.model,
-                             frame_limit=args.framelimit,
-                             dtype=dtype)
+                             frame_limit=args.framelimit)
 
     elif args.greenscreen:
         basic_greenscreen(
             os.path.abspath(args.greenscreen),
             args.gpubatchsize,
             args.model,
-            frame_limit=args.framelimit,
-            dtype=dtype)
+            frame_limit=args.framelimit)
 
     else:
         ap.print_help()

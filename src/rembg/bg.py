@@ -20,7 +20,7 @@ def iter_frames(path):
 
 
 class Net(torch.nn.Module):
-    def __init__(self, model_name, dtype):
+    def __init__(self, model_name):
         super(Net, self).__init__()
         hasher = Hasher()
 
@@ -72,24 +72,19 @@ class Net(torch.nn.Module):
                     size = file.write(data)
                     bar.update(size)
         net.load_state_dict(torch.load(path, map_location=torch.device(DEVICE)))
-        net.to(device=DEVICE, dtype=dtype, non_blocking=True)
+        net.to(device=DEVICE, dtype=torch.float32, non_blocking=True)
         net.eval()
         self.net = net
-        self.dtype: torch.dtype = dtype
 
     def forward(self, block_input: torch.Tensor):
-        original_shape = block_input.shape[1:3]
         image_data = block_input.permute(0, 3, 1, 2)
+        original_shape = block_input.shape[2:]
         image_data = torch.nn.functional.interpolate(image_data, (320, 320), mode='bilinear')
-        if self.dtype != torch.float32:
-            image_data = image_data.to(self.dtype, non_blocking=True)
         image_data = (image_data / 255 - 0.485) / 0.229
         out = self.net(image_data)[:, 0:1]
         ma = torch.max(out)
         mi = torch.min(out)
         out = (out - mi) / (ma - mi) * 255
-        if self.dtype != torch.float32:
-            out = out.to(torch.float32, non_blocking=True)
         out = torch.nn.functional.interpolate(out, original_shape, mode='bilinear')
         out = out[:, 0]
         out = out.to(dtype=torch.uint8, device=torch.device('cpu'), non_blocking=True).detach()
