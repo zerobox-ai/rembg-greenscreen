@@ -87,13 +87,13 @@ class Net(torch.nn.Module):
         out = self.net(image_data)[:, 0:1]
         ma = torch.max(out)
         mi = torch.min(out)
-        dn = (out - mi) / (ma - mi) * 255
+        out = (out - mi) / (ma - mi) * 255
         if self.dtype != torch.float32:
-            dn = image_data.to(torch.float32, non_blocking=True)
-        dn = torch.nn.functional.interpolate(dn, original_shape, mode='bilinear')
-        dn = dn[:, 0]
-        dn = dn.to(dtype=torch.uint8, device=torch.device('cpu'), non_blocking=True).detach()
-        return dn
+            out = out.to(torch.float32, non_blocking=True)
+        out = torch.nn.functional.interpolate(out, original_shape, mode='bilinear')
+        out = out[:, 0]
+        out = out.to(dtype=torch.uint8, device=torch.device('cpu'), non_blocking=True).detach()
+        return out
 
 
 @torch.no_grad()
