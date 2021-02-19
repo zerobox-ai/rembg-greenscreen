@@ -46,15 +46,17 @@ def worker(worker_nodes,
         for fdex in fi:
             del frames_dict[fdex]
         output_index += worker_nodes
+    print("finish")
 
 
-def capture_frames(file_path, frames_dict, prefetched_samples):
+def capture_frames(file_path, frames_dict, prefetched_samples, total_frames):
     print(F"WORKER FRAMERIPPER ONLINE")
-
     for idx, frame in enumerate(iter_frames(file_path)):
         frames_dict[idx] = frame
         while len(frames_dict) > prefetched_samples:
             time.sleep(0.1)
+        if idx > total_frames:
+            break
 
 
 def parallel_greenscreen(file_path,
@@ -80,7 +82,7 @@ def parallel_greenscreen(file_path,
     print(F"FRAME RATE: {frame_rate} TOTAL FRAMES: {total_frames}")
 
     p = multiprocessing.Process(target=capture_frames,
-                                args=(file_path, frames_dict, gpu_batchsize * prefetched_batches))
+                                args=(file_path, frames_dict, gpu_batchsize * prefetched_batches, total_frames))
     p.start()
 
     # note I am deliberatley not using pool
