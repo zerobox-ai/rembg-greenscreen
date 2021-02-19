@@ -51,7 +51,7 @@ def main():
     ap.add_argument(
         "-gb",
         "--gpubatchsize",
-        default=8,
+        default=4,
         type=int,
         help="GPU batchsize"
         )
