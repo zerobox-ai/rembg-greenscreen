@@ -46,7 +46,6 @@ def worker(worker_nodes,
         for fdex in fi:
             del frames_dict[fdex]
         output_index += worker_nodes
-    print("finish")
 
 
 def capture_frames(file_path, frames_dict, prefetched_samples, total_frames):
