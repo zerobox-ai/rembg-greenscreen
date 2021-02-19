@@ -19,84 +19,85 @@ def iter_frames(path):
     return mpy.VideoFileClip(path).resize(height=320).iter_frames(dtype="uint8")
 
 
-def get_model(model_name, dtype):
-    hasher = Hasher()
+class Net(torch.nn.Module):
+    def __init__(self, model_name, dtype):
+        super(Net, self).__init__()
+        hasher = Hasher()
 
-    model, hash_val, drive_target, env_var = {
-        'u2netp':          (u2net.U2NETP,
-                            'e4f636406ca4e2af789941e7f139ee2e',
-                            '1rbSTGKAE-MTxBYHd-51l2hMOQPT_7EPy',
-                            'U2NET_PATH'),
-        'u2net':           (u2net.U2NET,
-                            '09fb4e49b7f785c9f855baf94916840a',
-                            '1-Yg0cxgrNhHP-016FPdp902BR-kSsA4P',
-                            'U2NET_PATH'),
-        'u2net_human_seg': (u2net.U2NET,
-                            '347c3d51b01528e5c6c071e3cff1cb55',
-                            '1ao1ovG1Qtx4b7EoskHXmi2E9rp5CHLcZ',
-                            'U2NET_PATH')
-        }[model_name]
-    path = os.environ.get(env_var, os.path.expanduser(os.path.join("~", ".u2net", model_name + ".pth")))
-    net = model(3, 1)
-    if not os.path.exists(path) or hasher.md5(path) != hash_val:
-        head, tail = os.path.split(path)
-        os.makedirs(head, exist_ok=True)
+        model, hash_val, drive_target, env_var = {
+            'u2netp':          (u2net.U2NETP,
+                                'e4f636406ca4e2af789941e7f139ee2e',
+                                '1rbSTGKAE-MTxBYHd-51l2hMOQPT_7EPy',
+                                'U2NET_PATH'),
+            'u2net':           (u2net.U2NET,
+                                '09fb4e49b7f785c9f855baf94916840a',
+                                '1-Yg0cxgrNhHP-016FPdp902BR-kSsA4P',
+                                'U2NET_PATH'),
+            'u2net_human_seg': (u2net.U2NET,
+                                '347c3d51b01528e5c6c071e3cff1cb55',
+                                '1ao1ovG1Qtx4b7EoskHXmi2E9rp5CHLcZ',
+                                'U2NET_PATH')
+            }[model_name]
+        path = os.environ.get(env_var, os.path.expanduser(os.path.join("~", ".u2net", model_name + ".pth")))
+        net = model(3, 1)
+        if not os.path.exists(path) or hasher.md5(path) != hash_val:
+            head, tail = os.path.split(path)
+            os.makedirs(head, exist_ok=True)
 
-        URL = "https://docs.google.com/uc?export=download"
+            URL = "https://docs.google.com/uc?export=download"
 
-        session = requests.Session()
-        response = session.get(URL, params={"id": drive_target}, stream=True)
+            session = requests.Session()
+            response = session.get(URL, params={"id": drive_target}, stream=True)
 
-        token = None
-        for key, value in response.cookies.items():
-            if key.startswith("download_warning"):
-                token = value
-                break
+            token = None
+            for key, value in response.cookies.items():
+                if key.startswith("download_warning"):
+                    token = value
+                    break
 
-        if token:
-            params = {"id": drive_target, "confirm": token}
-            response = session.get(URL, params=params, stream=True)
+            if token:
+                params = {"id": drive_target, "confirm": token}
+                response = session.get(URL, params=params, stream=True)
 
-        total = int(response.headers.get("content-length", 0))
+            total = int(response.headers.get("content-length", 0))
 
-        with open(path, "wb") as file, tqdm(
-            desc=f"Downloading {tail} to {head}",
-            total=total,
-            unit="iB",
-            unit_scale=True,
-            unit_divisor=1024,
-            ) as bar:
-            for data in response.iter_content(chunk_size=1024):
-                size = file.write(data)
-                bar.update(size)
-    net.load_state_dict(torch.load(path, map_location=torch.device(DEVICE)))
-    net.to(device=DEVICE, dtype=dtype, non_blocking=True)
-    net.eval()
-    return net
+            with open(path, "wb") as file, tqdm(
+                desc=f"Downloading {tail} to {head}",
+                total=total,
+                unit="iB",
+                unit_scale=True,
+                unit_divisor=1024,
+                ) as bar:
+                for data in response.iter_content(chunk_size=1024):
+                    size = file.write(data)
+                    bar.update(size)
+        net.load_state_dict(torch.load(path, map_location=torch.device(DEVICE)))
+        net.to(device=DEVICE, dtype=dtype, non_blocking=True)
+        net.eval()
+        self.net = net
+        self.dtype: torch.dtype = dtype
 
-@torch.jit.script
+    def forward(self, block_input):
+        original_shape = block_input.shape[1:3]
+        image_data = torch.transpose(block_input, 1, 3)
+        image_data = torch.nn.functional.interpolate(image_data, (320, 320), mode='bilinear')
+        if self.dtype != torch.float32:
+            image_data = image_data.to(self.dtype, non_blocking=True)
+        image_data = (image_data / 255 - 0.485) / 0.229
+        out = self.net(image_data)[:, 0:1]
+        ma = torch.max(out)
+        mi = torch.min(out)
+        dn = (out - mi) / (ma - mi) * 255
+        if self.dtype != torch.float32:
+            dn = image_data.to(torch.float32, non_blocking=True)
+        dn = torch.nn.functional.interpolate(dn, original_shape, mode='bilinear')
+        dn = dn[:, 0]
+        dn = dn.to(dtype=torch.uint8, device=torch.device('cpu'), non_blocking=True).detach()
+        return dn
+
+
 @torch.no_grad()
-def _remove_many_torch(image_data: torch.Tensor, dtype: torch.dtype):
-    original_shape = image_data.shape[1:3]
-    image_data = torch.transpose(image_data, 1, 3)
-    image_data = torch.nn.functional.interpolate(image_data, (320, 320), mode='bilinear')
-    if dtype != torch.float32:
-        image_data = image_data.to(dtype, non_blocking=True)
-    image_data = (image_data / 255 - 0.485) / 0.229
-    out = net(image_data)[:, 0:1]
-    ma = torch.max(out)
-    mi = torch.min(out)
-    dn = (out - mi) / (ma - mi) * 255
-    if dtype != torch.float32:
-        dn = image_data.to(torch.float32, non_blocking=True)
-    dn = torch.nn.functional.interpolate(dn, original_shape, mode='bilinear')
-    dn = dn[:, 0]
-    dn = dn.to(dtype=torch.uint8, device=torch.device('cpu'), non_blocking=True).detach()
-    return dn
-
-@torch.no_grad()
-def remove_many(image_data: typing.List[np.array], net: typing.Union[u2net.U2NET, u2net.U2NETP], dtype: torch.dtype):
+def remove_many(image_data: typing.List[np.array], net: Net):
     image_data = np.stack(image_data)
     image_data = torch.as_tensor(image_data, dtype=torch.float32, device=DEVICE)
-    dn = _remove_many_torch(image_data, dtype).numpy()
-    return dn
+    return net(image_data).numpy()

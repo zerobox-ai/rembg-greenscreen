@@ -5,8 +5,10 @@ import subprocess as sp
 import time
 
 import ffmpeg
+import numpy as np
+import torch
 
-from .bg import get_model, iter_frames, remove_many
+from .bg import DEVICE, Net, iter_frames, remove_many
 
 
 def worker(worker_nodes,
@@ -21,7 +23,8 @@ def worker(worker_nodes,
 
     output_index = worker_index + 1
     base_index = worker_index * gpu_batchsize
-    net = get_model(model_name, dtype)
+    net = Net(model_name, dtype)
+    script_net = None
     for fi in (list(range(base_index + i * worker_nodes,
                           min(base_index + i * worker_nodes + gpu_batchsize, total_frames)))
                for i in range(0, math.ceil(total_frames / worker_nodes), gpu_batchsize)):
@@ -33,7 +36,11 @@ def worker(worker_nodes,
         while last not in frames_dict:
             time.sleep(0.1)
 
-        result_dict[output_index] = remove_many([frames_dict[index] for index in fi], net, dtype)
+        input_frames = [frames_dict[index] for index in fi]
+        if script_net is None:
+            script_net = torch.jit.trace(net,
+                                         torch.as_tensor(np.stack(input_frames), dtype=torch.float32, device=DEVICE))
+        result_dict[output_index] = remove_many(input_frames, script_net)
 
         # clean up the frame buffer
         for fdex in fi:

@@ -1,20 +1,25 @@
 import re
 import subprocess as sp
 
+import numpy as np
+import torch
 from more_itertools import chunked
 
-from .bg import get_model, iter_frames, remove_many
+from .bg import DEVICE, Net, iter_frames, remove_many
 
 
 def basic_greenscreen(path, gpubatchsize, model_name, dtype, frame_limit=-1):
     command = None
     proc = None
-    net = get_model(model_name, dtype)
+    net = Net(model_name, dtype)
+    script_net = None
     for gpu_batch in chunked(iter_frames(path), gpubatchsize):
         if 0 < frame_limit < gpubatchsize:
             break
         frame_limit -= gpubatchsize
-        for image in remove_many(gpu_batch, net, dtype):
+        if script_net is None:
+            script_net = torch.jit.trace(net, torch.as_tensor(np.stack(gpu_batch), dtype=torch.float32, device=DEVICE))
+        for image in remove_many(gpu_batch, script_net):
             if command is None:
                 command = ['FFMPEG',
                            '-y',
