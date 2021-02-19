@@ -25,9 +25,9 @@ def worker(worker_nodes,
     base_index = worker_index * gpu_batchsize
     net = Net(model_name, dtype)
     script_net = None
-    for fi in (list(range(base_index + i * worker_nodes,
-                          min(base_index + i * worker_nodes + gpu_batchsize, total_frames)))
-               for i in range(0, math.ceil(total_frames / worker_nodes), gpu_batchsize)):
+    for fi in (list(range(base_index + i * worker_nodes * gpu_batchsize,
+                          min(base_index + i * worker_nodes * gpu_batchsize + gpu_batchsize, total_frames)))
+               for i in range(math.ceil(total_frames / worker_nodes / gpu_batchsize))):
         if not fi:
             break
 
@@ -128,6 +128,9 @@ def parallel_greenscreen(file_path,
                 frame_counter = frame_counter + 1
 
                 if frame_counter >= total_frames:
+                    p.join()
+                    for w in workers:
+                        w.join()
                     proc.stdin.close()
                     proc.wait()
                     print(F"FINISHED ALL FRAMES ({total_frames})!")
@@ -136,6 +139,5 @@ def parallel_greenscreen(file_path,
     p.join()
     for w in workers:
         w.join()
-
     proc.stdin.close()
     proc.wait()
