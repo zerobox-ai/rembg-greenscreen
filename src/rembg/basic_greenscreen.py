@@ -14,7 +14,7 @@ def basic_greenscreen(path, gpubatchsize, model_name, dtype, frame_limit=-1):
     net = Net(model_name, dtype)
     script_net = None
     for gpu_batch in chunked(iter_frames(path), gpubatchsize):
-        if 0 < frame_limit < gpubatchsize:
+        if 0 <= frame_limit < gpubatchsize:
             break
         frame_limit -= gpubatchsize
         if script_net is None:
