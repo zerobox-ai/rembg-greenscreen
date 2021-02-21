@@ -3,7 +3,6 @@ import multiprocessing
 import re
 import subprocess as sp
 import time
-
 import ffmpeg
 import numpy as np
 import torch
@@ -39,6 +38,8 @@ def worker(worker_nodes,
         if script_net is None:
             script_net = torch.jit.trace(net,
                                          torch.as_tensor(np.stack(input_frames), dtype=torch.float32, device=DEVICE))
+
+
         result_dict[output_index] = remove_many(input_frames, script_net)
 
         # clean up the frame buffer
@@ -67,6 +68,8 @@ def parallel_greenscreen(file_path,
 
     results_dict = manager.dict()
     frames_dict = manager.dict()
+
+    print(file_path)
 
     info = ffmpeg.probe(file_path)
     total_frames = int(info["streams"][0]["nb_frames"])

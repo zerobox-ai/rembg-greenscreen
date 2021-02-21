@@ -74,10 +74,10 @@ def main():
                              frame_limit=args.framelimit)
 
     elif args.greenscreen:
-        basic_greenscreen(
-            os.path.abspath(args.greenscreen),
-            args.gpubatchsize,
-            args.model,
+        parallel_greenscreen(os.path.abspath(args.greenscreen),
+            worker_nodes=1,
+            gpu_batchsize=args.gpubatchsize,
+            model_name=args.model,
             frame_limit=args.framelimit)
 
     else:
