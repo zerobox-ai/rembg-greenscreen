@@ -63,7 +63,8 @@ def parallel_greenscreen(file_path,
                          gpu_batchsize,
                          model_name,
                          frame_limit=-1,
-                         prefetched_batches=4):
+                         prefetched_batches=4,
+                         framerate=-1):
     manager = multiprocessing.Manager()
 
     results_dict = manager.dict()
@@ -77,9 +78,13 @@ def parallel_greenscreen(file_path,
     if frame_limit != -1:
         total_frames = min(frame_limit, total_frames)
 
-    frame_rate = math.ceil(eval(info["streams"][0]["r_frame_rate"]))
+    fr = info["streams"][0]["r_frame_rate"]
 
-    print(F"FRAME RATE: {frame_rate} TOTAL FRAMES: {total_frames}")
+    if framerate == -1:
+        print(F"FRAME RATE DETECTED: {fr} (if this looks wrong, override the frame rate)")
+        framerate = math.ceil(eval(fr))
+
+    print(F"FRAME RATE: {framerate} TOTAL FRAMES: {total_frames}")
 
     p = multiprocessing.Process(target=capture_frames,
                                 args=(file_path, frames_dict, gpu_batchsize * prefetched_batches, total_frames))
@@ -117,7 +122,7 @@ def parallel_greenscreen(file_path,
                                '-vcodec', 'rawvideo',
                                '-s', F"{frame.shape[1]}x320",
                                '-pix_fmt', 'gray',
-                               '-r', F"{frame_rate}",
+                               '-r', F"{framerate}",
                                '-i', '-',
                                '-an',
                                '-vcodec', 'mpeg4',

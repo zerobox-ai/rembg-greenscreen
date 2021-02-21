@@ -3,7 +3,6 @@ import os
 
 import torch
 
-from ..basic_greenscreen import basic_greenscreen
 from ..multiprocessing import parallel_greenscreen
 
 
@@ -57,6 +56,14 @@ def main():
         )
 
     ap.add_argument(
+        "-fr",
+        "--framerate",
+        default=-1,
+        type=int,
+        help="Override the frame rate"
+        )
+
+    ap.add_argument(
         "-fl",
         "--framelimit",
         default=-1,
@@ -71,14 +78,16 @@ def main():
                              worker_nodes=args.workernodes,
                              gpu_batchsize=args.gpubatchsize,
                              model_name=args.model,
-                             frame_limit=args.framelimit)
+                             frame_limit=args.framelimit,
+                             framerate = args.framerate)
 
     elif args.greenscreen:
         parallel_greenscreen(os.path.abspath(args.greenscreen),
             worker_nodes=1,
             gpu_batchsize=args.gpubatchsize,
             model_name=args.model,
-            frame_limit=args.framelimit)
+            frame_limit=args.framelimit,
+            framerate = args.framerate)
 
     else:
         ap.print_help()
