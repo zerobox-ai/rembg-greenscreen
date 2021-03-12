@@ -1,6 +1,5 @@
 numpy==1.19.4
 torchvision
-PyMatting==1.1.1
 tqdm==4.56.0
 more_itertools==8.7.0
 moviepy==1.0.3
@@ -9,6 +8,5 @@ torch
 scikit_image==0.17.2
 requests==2.25.1
 hsh==1.1.0
-python-ffmpeg
 Pillow==8.1.0
-scikit-image
+ffmpeg-python

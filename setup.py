@@ -11,7 +11,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="rembg-greenscreen",
-    version="2.1.6",
+    version="2.1.9",
     description="Rembg Virtual Green Screen",
     long_description=long_description,
     long_description_content_type="text/markdown",
