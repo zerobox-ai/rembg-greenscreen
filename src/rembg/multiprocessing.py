@@ -116,7 +116,7 @@ def parallel_greenscreen(file_path,
 
             for frame in frames:
                 if command is None:
-                    command = ['FFMPEG',
+                    command = ['ffmpeg',
                                '-y',
                                '-f', 'rawvideo',
                                '-vcodec', 'rawvideo',
