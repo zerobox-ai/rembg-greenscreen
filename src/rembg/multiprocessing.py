@@ -6,6 +6,8 @@ import time
 import ffmpeg
 import numpy as np
 import torch
+import cv2
+import uuid
 
 from .bg import DEVICE, Net, iter_frames, remove_many
 
@@ -34,13 +36,24 @@ def worker(worker_nodes,
         while last not in frames_dict:
             time.sleep(0.1)
 
-        input_frames = [frames_dict[index] for index in fi]
+        input_frames = [frames_dict[index] for index in fi]#(1, 320, 568, 3
         if script_net is None:
             script_net = torch.jit.trace(net,
                                          torch.as_tensor(np.stack(input_frames), dtype=torch.float32, device=DEVICE))
 
 
-        result_dict[output_index] = remove_many(input_frames, script_net)
+        result_dict[output_index] = remove_many(input_frames, script_net) #(1,320,568)
+        original_img = np.copy(input_frames) # (1, 320, 556, 3)
+        output_copy = np.copy(result_dict[output_index][0]) # (320, 568) -> (320, 556)
+        cv2.resize(output_copy, (original_img.shape[2], original_img.shape[1]))
+        contours, _ = cv2.findContours(output_copy, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        x, y, w, h = cv2.boundingRect(contours[0])
+        color = (255, 0, 0)
+        thickness = 2
+        cv2.rectangle(original_img[0], (x, y), (x+w, y+h), color, thickness,lineType=cv2.LINE_AA)
+        # result_dict[output_index] = original_img
+        # cv2.imwrite("/Users/zihao/Desktop/zero/video/output/" + str(output_index) + ".jpg", original_img[0])
+        result_dict[output_index] = original_img
 
         # clean up the frame buffer
         for fdex in fi:
@@ -65,6 +78,8 @@ def parallel_greenscreen(file_path,
                          frame_limit=-1,
                          prefetched_batches=4,
                          framerate=-1):
+                         
+    multiprocessing.set_start_method("spawn")
     manager = multiprocessing.Manager()
 
     results_dict = manager.dict()
@@ -121,7 +136,7 @@ def parallel_greenscreen(file_path,
                                '-f', 'rawvideo',
                                '-vcodec', 'rawvideo',
                                '-s', F"{frame.shape[1]}x320",
-                               '-pix_fmt', 'gray',
+                               '-pix_fmt', 'rgb24',
                                '-r', F"{framerate}",
                                '-i', '-',
                                '-an',
